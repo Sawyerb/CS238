@@ -17,6 +17,7 @@ while(election.n_rounds != 0):
 	print("In round " + str(i) + ", candadite had " + str(round(poll, 2)) + " vote share")
 	contribution = donor.makeContribution(poll)
 	election.updateSupport(contribution)
+	i += 1
 
 election_result = election.runElection()
 print("Result: candadite recived " + str(round(election_result, 2)) + " vote share")

@@ -4,7 +4,9 @@ Money - Votes
 Votes - Polls
 """
 import csv
-from collections import defaultdict, Counter
+from collections import defaultdict
+import matplotlib.pyplot as plt
+import numpy as np
 
 def get_cands_votes(): 
     '''
@@ -64,11 +66,8 @@ def get_polls():
             dem[row['CD']] = float(row['Dem'].replace('%', ''))
             rep[row['CD']] = float(row['Rep'].replace('%', ''))
     return dem, rep
-def main(): 
-    '''
-    Output format:
-    state | district | ID | name | votes | money | poll
-    '''
+
+def organize_data(): 
     cands = get_cands_votes()
     money = get_money()
     dem, rep = get_polls()
@@ -91,6 +90,54 @@ def main():
                 writer.writerow([cands[cand]['state'], cands[cand]['district'], cand, cands[cand]['name'], 
                     cands[cand]['vote %'], money_percent, rep[cands[cand]['state']+district]])
     file.close()
+
+def visualize_relationships(): 
+    votes = []
+    money = []
+    poll = []
+    with open('./data/2014_house_election_clean.txt', 'r') as csvfile:
+        reader = csv.DictReader(csvfile, delimiter=',')
+        for row in reader:
+            votes.append(float(row['votes %']))
+            money.append(float(row['money %']))
+            poll.append(float(row['poll %']))
+    # % Money - % Votes
+    # plot of values against values
+    plt.scatter(money, votes)
+    plt.xlabel('money %')
+    plt.ylabel('votes %')
+    plt.savefig('./data/money_vs_votes.png')
+    plt.close()
+    # plot of 1% money against % votes
+    plt.title('vote percent per money percent')
+    x = np.array(votes) / np.array(money)
+    x = x[~np.isinf(x)]
+    x = x[x < 10] # remove outliers
+    plt.hist(x, bins=100)
+    plt.savefig('./data/vote_per_money.png')
+    plt.close()
+    # % Votes - % Polls
+    # plot of values against values
+    plt.scatter(votes, poll)
+    plt.xlabel('votes %')
+    plt.ylabel('poll %')
+    plt.savefig('./data/votes_vs_polls.png')
+    plt.close()
+    # plot of 1% of poll against % votes
+    plt.title('poll percent per vote percent')
+    x = np.array(poll) / np.array(votes)
+    x = x[~np.isinf(x)]
+    x = x[x < 10] # remove outliers
+    plt.hist(x, bins=100)
+    plt.savefig('./data/poll_per_vote.png')
+    plt.close()
+
+def main(): 
+    '''
+    Output format:
+    state | district | ID | name | votes | money | poll
+    '''
+    visualize_relationships()
 
 if __name__ == '__main__':
     main()

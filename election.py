@@ -18,6 +18,7 @@ class Election():
 		spending_effect = np.random.normal(self.spending_effect_mean, self.spending_effect_sd)
 		print("Support increased by " + str(round(new_spending * spending_effect, 2)))
 		self.support += (new_spending * spending_effect)
+		self.support = min(1, self.support) # its not possible to get more than 100% of the votes
 		self.n_rounds -= 1
 
 	def runElection(self):

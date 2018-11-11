@@ -2,7 +2,7 @@
 import numpy as np
 
 class Election():
-	POLLING_SD = 0.05 
+	POLLING_SD = 0.02 
 
 	def __init__(self, n_rounds, spending_effect_mean, spending_effect_sd, starting_support):
 		self.n_rounds = n_rounds

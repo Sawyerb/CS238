@@ -7,12 +7,13 @@ import csv
 from collections import defaultdict
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy import stats
 
 def get_cands_votes(): 
     '''
     From FEC.
     Note: tere are some rows where the same candidate repeats
-    with different party. 
+    with different party.
     '''
     cands = {}
     data = './data/2014_house_election_results.csv'
@@ -113,7 +114,12 @@ def visualize_relationships():
     x = np.array(votes) / np.array(money)
     x = x[~np.isinf(x)]
     x = x[x < 10] # remove outliers
-    plt.hist(x, bins=100)
+    a, b, loc, scale = stats.beta.fit(x)
+    plt.plot(sorted(x), stats.beta.pdf(sorted(x), a, b, loc, scale), label='beta')
+    nparam_density = stats.kde.gaussian_kde(x)
+    plt.plot(sorted(x), nparam_density(sorted(x)), label='gaussian')
+    plt.hist(x, density=True, bins=200)
+    plt.legend()
     plt.savefig('./data/vote_per_money.png')
     plt.close()
     # % Votes - % Polls
@@ -128,7 +134,12 @@ def visualize_relationships():
     x = np.array(poll) / np.array(votes)
     x = x[~np.isinf(x)]
     x = x[x < 10] # remove outliers
-    plt.hist(x, bins=100)
+    a, b, loc, scale = stats.beta.fit(x)
+    plt.plot(sorted(x), stats.beta.pdf(sorted(x), a, b, loc, scale), label='beta')
+    nparam_density = stats.kde.gaussian_kde(x)
+    plt.plot(sorted(x), nparam_density(sorted(x)), label='gaussian')
+    plt.hist(x, density=True, bins=100)
+    plt.legend()
     plt.savefig('./data/poll_per_vote.png')
     plt.close()
 

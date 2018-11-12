@@ -3,9 +3,9 @@ class Donor(object):
 	def __init__(self, funds):
 		self.funds = funds
 	
-	def makeContribution(self, recent_poll):
-		if(self.funds > 0):
-			self.funds -= 1 
+	def makeContribution(self, contribution):
+		if(self.funds >= contribution):
+			self.funds -= contribution 
 			return 1
 		else:
 			return 0

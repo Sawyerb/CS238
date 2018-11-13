@@ -1,7 +1,8 @@
 from donor import Donor
 from election import Election
 
-INITIAL_FUNDS = 1000000 
+INITIAL_FUNDS = 1000000
+# choose a new mean for every race
 election = Election(10, 0.01, 0.000003, .45)
 donor = Donor(INITIAL_FUNDS)
 
@@ -14,19 +15,19 @@ def calculateScore(won, donor):
 i = 0
 while(election.n_rounds != 0):
 	poll = election.generatePoll()
-	print("In round " + str(i) + ", candadite had " + str(round(poll, 2)) + " vote share")
+	print("In round " + str(i) + ", candidate had " + str(round(poll, 2)) + " vote share")
 	contribution = donor.makeContribution(poll)
 	election.updateSupport(contribution)
 	i += 1
 
 election_result = election.runElection()
-print("Result: candadite recived " + str(round(election_result, 2)) + " vote share")
+print("Result: candidate recived " + str(round(election_result, 2)) + " vote share")
 if(election_result > 0.5):
 	won = True
-	print("Candidite won")
+	print("Candidate won")
 else:
 	won = False
-	print("Candidite lost")
+	print("Candidate lost")
 
 calculateScore(won, donor)
 

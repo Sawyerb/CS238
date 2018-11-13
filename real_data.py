@@ -7,7 +7,8 @@ import csv
 from collections import defaultdict
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy import stats
+import scipy.stats as st
+import warnings
 
 def get_cands_votes(): 
     '''
@@ -92,6 +93,45 @@ def organize_data():
                     cands[cand]['vote %'], money_percent, rep[cands[cand]['state']+district]])
     file.close()
 
+def find_best_fit(data): 
+    '''
+    Based on "Distribution Fitting with Sum of Square Error (SSE)"
+    https://stackoverflow.com/questions/6620471/fitting-empirical-distribution-to-theoretical-ones-with-scipy-python
+    '''
+    print "Finding best fit..."
+    y, x = np.histogram(data, bins=200, density=True)
+    x = (x + np.roll(x, -1))[:-1] / 2.0
+    all_dists = [
+        st.alpha,st.anglit,st.arcsine,st.beta,st.betaprime,st.bradford,st.burr,st.cauchy,st.chi,st.chi2,st.cosine,
+        st.dgamma,st.dweibull,st.erlang,st.expon,st.exponnorm,st.exponweib,st.exponpow,st.f,st.fatiguelife,st.fisk,
+        st.foldcauchy,st.foldnorm,st.frechet_r,st.frechet_l,st.genlogistic,st.genpareto,st.gennorm,st.genexpon,
+        st.genextreme,st.gausshyper,st.gamma,st.gengamma,st.genhalflogistic,st.gilbrat,st.gompertz,st.gumbel_r,
+        st.gumbel_l,st.halfcauchy,st.halflogistic,st.halfnorm,st.halfgennorm,st.hypsecant,st.invgamma,st.invgauss,
+        st.invweibull,st.johnsonsb,st.johnsonsu,st.ksone,st.kstwobign,st.laplace,st.levy,st.levy_l,st.levy_stable,
+        st.logistic,st.loggamma,st.loglaplace,st.lognorm,st.lomax,st.maxwell,st.mielke,st.nakagami,st.ncx2,st.ncf,
+        st.nct,st.norm,st.pareto,st.pearson3,st.powerlaw,st.powerlognorm,st.powernorm,st.rdist,st.reciprocal,
+        st.rayleigh,st.rice,st.recipinvgauss,st.semicircular,st.t,st.triang,st.truncexpon,st.truncnorm,st.tukeylambda,
+        st.uniform,st.vonmises,st.vonmises_line,st.wald,st.weibull_min,st.weibull_max,st.wrapcauchy
+    ]
+    best_distribution = st.norm
+    best_params = (0.0, 1.0)
+    best_sse = np.inf
+    for d in all_dists:
+        try:
+            with warnings.catch_warnings():
+                warnings.filterwarnings('ignore')
+                params = d.fit(data)
+                pdf = d.pdf(x, loc=params[-2], scale=params[-1], *params[:-2])
+                sse = np.sum(np.power(y - pdf, 2.0)) # sum of square error
+                if best_sse > sse > 0:
+                    best_distribution = d
+                    best_params = params
+                    best_sse = sse
+        except Exception:
+            pass
+    print "Got best fit..."
+    return (best_distribution.name, best_params)
+
 def visualize_relationships(): 
     votes = []
     money = []
@@ -114,10 +154,15 @@ def visualize_relationships():
     x = np.array(votes) / np.array(money)
     x = x[~np.isinf(x)]
     x = x[x < 10] # remove outliers
-    a, b, loc, scale = stats.beta.fit(x)
-    plt.plot(sorted(x), stats.beta.pdf(sorted(x), a, b, loc, scale), label='beta')
-    nparam_density = stats.kde.gaussian_kde(x)
-    plt.plot(sorted(x), nparam_density(sorted(x)), label='gaussian')
+    np.save('./data/vote_per_money.npy', x)
+    best_fit_name, best_fit_params = find_best_fit(x)
+    print "Best fit for vote_per_money:", best_fit_name, best_fit_params
+    best_dist = getattr(st, best_fit_name)
+    plt.plot(sorted(x), best_dist.pdf(sorted(x), loc=best_fit_params[-2], scale=best_fit_params[-1], *best_fit_params[:-2]))
+    #a, b, loc, scale = st.beta.fit(x)
+    #plt.plot(sorted(x), st.beta.pdf(sorted(x), a, b, loc, scale), label='beta')
+    #nparam_density = st.kde.gaussian_kde(x)
+    #plt.plot(sorted(x), nparam_density(sorted(x)), label='gaussian')
     plt.hist(x, density=True, bins=200)
     plt.legend()
     plt.savefig('./data/vote_per_money.png')
@@ -134,10 +179,15 @@ def visualize_relationships():
     x = np.array(poll) / np.array(votes)
     x = x[~np.isinf(x)]
     x = x[x < 10] # remove outliers
-    a, b, loc, scale = stats.beta.fit(x)
-    plt.plot(sorted(x), stats.beta.pdf(sorted(x), a, b, loc, scale), label='beta')
-    nparam_density = stats.kde.gaussian_kde(x)
-    plt.plot(sorted(x), nparam_density(sorted(x)), label='gaussian')
+    np.save('./data/poll_per_vote.npy', x)
+    best_fit_name, best_fit_params = find_best_fit(x)
+    print "Best fit for poll per vote:", best_fit_name, best_fit_params
+    best_dist = getattr(st, best_fit_name)
+    plt.plot(sorted(x), best_dist.pdf(sorted(x), loc=best_fit_params[-2], scale=best_fit_params[-1], *best_fit_params[:-2]))
+    #a, b, loc, scale = st.beta.fit(x)
+    #plt.plot(sorted(x), st.beta.pdf(sorted(x), a, b, loc, scale), label='beta')
+    #nparam_density = st.kde.gaussian_kde(x)
+    #plt.plot(sorted(x), nparam_density(sorted(x)), label='gaussian')
     plt.hist(x, density=True, bins=100)
     plt.legend()
     plt.savefig('./data/poll_per_vote.png')

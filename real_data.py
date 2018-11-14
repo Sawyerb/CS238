@@ -156,7 +156,7 @@ def visualize_relationships():
     x = x[x < 10] # remove outliers
     np.save('./data/vote_per_money.npy', x)
     best_fit_name, best_fit_params = find_best_fit(x)
-    print "Best fit for vote_per_money:", best_fit_name, best_fit_params
+    print "Best fit for vote per money:", best_fit_name, best_fit_params
     best_dist = getattr(st, best_fit_name)
     plt.plot(sorted(x), best_dist.pdf(sorted(x), loc=best_fit_params[-2], scale=best_fit_params[-1], *best_fit_params[:-2]))
     #a, b, loc, scale = st.beta.fit(x)

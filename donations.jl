@@ -1,6 +1,7 @@
 using POMDPs
+using QMDP
 using POMDPModelTools
-using ParticleFilters, Distribution
+using ParticleFilters, Distributions
 
 # state, action, observation
 mutable struct DonationsPOMDP <: POMDP{Tuple{Int64, Int64, Int64, Int64}, Int64, Int64}
@@ -43,46 +44,46 @@ observations(::DonationsPOMDP) = 0:100
 obsindex(::DonationsPOMDP, o::Int64) = o + 1
 n_observations(::DonationsPOMDP) = 101
 
-initial_belief(::DonationsPOMDP) = DiscreteBelief(2)
-support(::BoolDistribution)
-pdf(::BoolDistribution, ::Bool)
-initialstate_distribution(::DonationsPOMDP)
+#initial_belief(::DonationsPOMDP) = DiscreteBelief(2)
+#support(::BoolDistribution)
+#pdf(::BoolDistribution, ::Bool)
+# initialstate_distribution(::DonationsPOMDP)
 
-function transition(pomdp::DonationsPOMDP, s::Bool, a::Bool)
-    if a # fed
-        return BoolDistribution(0.0)
-    elseif s # did not feed when hungry
-        return BoolDistribution(1.0)
-    else # did not feed when not hungry
-        return BoolDistribution(pomdp.p_become_hungry)
-    end
-end
+# function transition(pomdp::DonationsPOMDP, s::Bool, a::Bool)
+#     if a # fed
+#         return BoolDistribution(0.0)
+#     elseif s # did not feed when hungry
+#         return BoolDistribution(1.0)
+#     else # did not feed when not hungry
+#         return BoolDistribution(pomdp.p_become_hungry)
+#     end
+# end
 
-function observation(pomdp::DonationsPOMDP, a::Bool, sp::Bool)
-    if sp # hungry
-        return BoolDistribution(pomdp.p_cry_when_hungry)
-    else
-        return BoolDistribution(pomdp.p_cry_when_not_hungry)
-    end
-end
+# function observation(pomdp::DonationsPOMDP, a::Bool, sp::Bool)
+#     if sp # hungry
+#         return BoolDistribution(pomdp.p_cry_when_hungry)
+#     else
+#         return BoolDistribution(pomdp.p_cry_when_not_hungry)
+#     end
+# end
 
-function reward(pomdp::DonationsPOMDP, s::Bool, a::Bool)
-    r = 0.0
-    if s # hungry
-        r += pomdp.r_hungry
-    end
-    if a # feed
-        r += pomdp.r_feed
-    end
-    return r
-end
+# function reward(pomdp::DonationsPOMDP, s::Bool, a::Bool)
+#     r = 0.0
+#     if s # hungry
+#         r += pomdp.r_hungry
+#     end
+#     if a # feed
+#         r += pomdp.r_feed
+#     end
+#     return r
+# end
 
-discount(p::DonationsPOMDP) = 1
+# discount(p::DonationsPOMDP) = 1
 
-function generate_o(p::DonationsPOMDP, s::Bool, rng::AbstractRNG)
-    d = observation(p, true, s) # obs distrubtion not action dependant
-    return rand(rng, d)
-end
+# function generate_o(p::DonationsPOMDP, s::Bool, rng::AbstractRNG)
+#     d = observation(p, true, s) # obs distrubtion not action dependant
+#     return rand(rng, d)
+# end
 
 # # some example policies
 # mutable struct Starve <: Policy end

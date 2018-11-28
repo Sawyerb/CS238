@@ -2,6 +2,7 @@ using POMDPs
 using QMDP
 using POMDPModelTools
 using ParticleFilters, Distributions
+using Random
 
 # state, action, observation
 mutable struct DonationsPOMDP <: POMDP{Tuple{Int64, Int64, Int64}, Int64, Tuple{Int64, Int64, Int64}}
@@ -9,7 +10,7 @@ mutable struct DonationsPOMDP <: POMDP{Tuple{Int64, Int64, Int64}, Int64, Tuple{
     #o_std::Float64 # std of normal dist vote -> poll
     #t_mean::Float64 # money -> vote
     #t_std::Float64 # money -> vote
-    win_r::Float64 # winning reward
+    win_r::Int64 # winning reward
     total_steps::Int64
     initial_supp::Int64
     initial_budg::Int64
@@ -18,11 +19,13 @@ mutable struct DonationsPOMDP <: POMDP{Tuple{Int64, Int64, Int64}, Int64, Tuple{
 end
 
 # Q why is nothing showing up when we want requirements_info? 
-DonationsPOMDP() = DonationsPOMDP(0.5, 0.2, 0.5, 0.2, 100, 10, 45, 100, 100, 100)
+DonationsPOMDP() = DonationsPOMDP(100, 10, 45, 100, 100, 100)
 
 updater(problem::DonationsPOMDP) = ParticleFilters(problem)
 
 actions(::DonationsPOMDP) = Tuple(0:100)
+
+actions(::DonationsPOMDP, s::Tuple{Int64, Int64, Int64}) = Tuple(0:s[3])
 
 actionindex(::DonationsPOMDP, a::Int64) = a + 1
 
@@ -78,11 +81,13 @@ function observation(pomdp::DonationsPOMDP, a::Int64, sp::Tuple{Int64, Int64, In
     return (sp[1], sp[2], sp[3])
 end
 
-function reward(pomdp::DonationsPOMDP, s::Bool, a::Bool)
+function reward(pomdp::DonationsPOMDP, s::Tuple{Int64, Int64, Int64}, a::Int64, sp::Tuple{Int64, Int64, Int64})
     # Q Do we only calculate the win reward if we are winning at the end or along the way? 
     r = 0.0
-    if pomdp.support > 50: 
+    if pomdp.support > 50
         r += pomdp.win_r # award for winning
-    r -= s[3] # penalty for what you spent
+    end
+    r -= sp[3] # penalty for what you spent
     return r
 end
+

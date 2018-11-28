@@ -18,22 +18,21 @@ mutable struct DonationsPOMDP <: POMDP{Tuple{Int64, Int64, Int64}, Int64, Tuple{
     pol_money::Int64 # supported politician's money
 end
 
-# Q why is nothing showing up when we want requirements_info? 
 DonationsPOMDP() = DonationsPOMDP(100, 10, 45, 100, 100, 100)
 
-updater(problem::DonationsPOMDP) = ParticleFilters(problem)
+POMDPs.updater(problem::DonationsPOMDP) = ParticleFilters(problem)
 
-actions(::DonationsPOMDP) = Tuple(0:100)
+POMDPs.actions(::DonationsPOMDP) = Tuple(0:100)
 
-actions(::DonationsPOMDP, s::Tuple{Int64, Int64, Int64}) = Tuple(0:s[3])
+POMDPs.actions(::DonationsPOMDP, s::Tuple{Int64, Int64, Int64}) = Tuple(0:s[3])
 
-actionindex(::DonationsPOMDP, a::Int64) = a + 1
+POMDPs.actionindex(::DonationsPOMDP, a::Int64) = a + 1
 
-n_actions(::DonationsPOMDP) = 101
+POMDPs.n_actions(::DonationsPOMDP) = 101
 
-function states(::DonationsPOMDP)
+function POMDPs.states(pomdp::DonationsPOMDP)
     ret = []
-    for num in 1:total_steps
+    for num in 1:pomdp.total_steps
         for vote_per in 0:100
             for money in 0:100
                 push!(ret, (num, vote_per, money))
@@ -43,28 +42,26 @@ function states(::DonationsPOMDP)
     return ret
 end
 
-function stateindex(::DonationsPOMDP, s::Tuple{Int64, Int64, Int64}) 
-    a = zeros(total_steps, 101, 101)
+function POMDPs.stateindex(pomdp::DonationsPOMDP, s::Tuple{Int64, Int64, Int64}) 
+    a = zeros(pomdp.total_steps, 101, 101)
     return LinearIndices(a)[s[1], s[2], s[3]]
 end 
 
-n_states(::DonationsPOMDP) = total_steps*101*101
+POMDPs.n_states(pomdp::DonationsPOMDP) = pomdp.total_steps*101*101
 
-observations(::DonationsPOMDP) = Tuple(0:100)
+POMDPs.observations(::DonationsPOMDP) = Tuple(0:100)
 
-obsindex(::DonationsPOMDP, o::Int64) = o + 1
+POMDPs.obsindex(::DonationsPOMDP, o::Int64) = o + 1
 
-n_observations(::DonationsPOMDP) = 101
+POMDPs.n_observations(::DonationsPOMDP) = 101
 
-discount(p::DonationsPOMDP) = 1
+POMDPs.discount(p::DonationsPOMDP) = 1
 
-# Q why don't we need to specify an initial state for QMDPSolver()? is it because it's offline?
-# Q is it ok to fix our initial state so we can run analyses of how it impacts things? 
-function initialstate(pomdp::DonationsPOMDP, rng::AbstractRNG)
+function POMDPs.initialstate(pomdp::DonationsPOMDP, rng::AbstractRNG)
     return (pomdp.total_steps, pomdp.initial_supp, pomdp.initial_budg)
 end
 
-function transition(pomdp::DonationsPOMDP, s::Tuple{Int64, Int64, Int64}, a::Int64)
+function POMDPs.transition(pomdp::DonationsPOMDP, s::Tuple{Int64, Int64, Int64}, a::Int64)
     a = min(a, s[3]) # cannot give more than you have
     agent_money = s[3] - a
     pomdp.pol_money = pomdp.pol_money + a
@@ -75,18 +72,19 @@ function transition(pomdp::DonationsPOMDP, s::Tuple{Int64, Int64, Int64}, a::Int
     return (num_steps, support, agent_money)
 end
 
-# Q Why don't we require an observation function for QMDPSolver() when it seems important for our problem? 
-function observation(pomdp::DonationsPOMDP, a::Int64, sp::Tuple{Int64, Int64, Int64})
+function POMDPs.observation(pomdp::DonationsPOMDP, a::Int64, sp::Tuple{Int64, Int64, Int64})
     # Q how to return a discrete distribution? (same problem as above)
     # TODO we want sp[2] to have noise
     return (sp[1], sp[2], sp[3]) 
 end
 
-function reward(pomdp::DonationsPOMDP, s::Tuple{Int64, Int64, Int64}, a::Int64, sp::Tuple{Int64, Int64, Int64})
-    # Q Do we only calculate the win reward if we are winning at the end or along the way? 
+function POMDPs.reward(pomdp::DonationsPOMDP, s::Tuple{Int64, Int64, Int64}, a::Int64, sp::Tuple{Int64, Int64, Int64})
+    # reward * (1-num_steps_left)
     r = 0.0
     if pomdp.support > 50
         r += pomdp.win_r # award for winning
+    elseif pomdp.support < 50
+        r -= pomdp.win_r
     end
     r -= sp[3] # penalty for what you spent
     return r

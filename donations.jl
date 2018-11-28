@@ -58,7 +58,7 @@ n_observations(::DonationsPOMDP) = 101
 
 discount(p::DonationsPOMDP) = 1
 
-# Q why don't we need to specify an initial state for QMDPSolver()?  
+# Q why don't we need to specify an initial state for QMDPSolver()? is it because it's offline?
 # Q is it ok to fix our initial state so we can run analyses of how it impacts things? 
 function initialstate(pomdp::DonationsPOMDP, rng::AbstractRNG)
     return (pomdp.total_steps, pomdp.initial_supp, pomdp.initial_budg)
@@ -77,8 +77,9 @@ end
 
 # Q Why don't we require an observation function for QMDPSolver() when it seems important for our problem? 
 function observation(pomdp::DonationsPOMDP, a::Int64, sp::Tuple{Int64, Int64, Int64})
+    # Q how to return a discrete distribution? (same problem as above)
     # TODO we want sp[2] to have noise
-    return (sp[1], sp[2], sp[3])
+    return (sp[1], sp[2], sp[3]) 
 end
 
 function reward(pomdp::DonationsPOMDP, s::Tuple{Int64, Int64, Int64}, a::Int64, sp::Tuple{Int64, Int64, Int64})

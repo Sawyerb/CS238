@@ -4,6 +4,7 @@ import election
 import donor
 from scipy.stats import norm
 import scipy.stats as st
+from tqdm import tqdm
 
 POLLING_SD = 0.02
 
@@ -17,14 +18,15 @@ class state():
 		self.max_rounds = max_rounds
 		self.n_rounds = n_rounds
 
-def plan_pomcpow(b, n, d=1, ka=1, aa=1, c=1):
-	start_h = {"children": {}, "visits": 0, "seqs": {}, 
-				"remaining_funds": 100}
+def plan_pomcpow(b, n, d=1, ka=1, aa=1, ko = 1, ao = 1, c=1, start_support = 0.5, 
+				 start_funds = 1, max_rounds = 10):
+	start_h = {"children": {}, "visits": 1, "seqs": {}, 
+				"remaining_funds": start_funds}
 
-	for i in range(n):
+	for i in tqdm(range(n)):
 		s = np.random.normal(b, POLLING_SD)
-		start_state = state(0.5, 1000, 0, 100, 10, 10)
-		simulate_pomcpow(start_state, start_h, d, ka, aa, c)
+		start_state = state(start_support, start_funds, 1000000*start_support, 1000000*(1-start_support), max_rounds, max_rounds)
+		simulate_pomcpow(start_state, start_h, d, ka, aa, ko, ao, c)
 
 	best_a = None
 	best_val = None
@@ -35,16 +37,18 @@ def plan_pomcpow(b, n, d=1, ka=1, aa=1, c=1):
 			best_val = val
 			best_a = a
 
-	print(start_h)
+	#print(start_h)
 	return best_a
 
 def actionProgWiden(h, ka, aa, c):
+	#print(h["remaining_funds"])
 	if (len(h["children"].keys()) <= ka*(h["visits"]**aa)):
 		while(True):
 			a = np.random.uniform(0, h["remaining_funds"])
+			#print(a)
 			if(a not in h["children"].keys()):
+				h["children"][a] = {"Q": 0, "visits": 1, "children":{}}
 				break
-			h["children"][a] = {Q: 0, visits: 1}
 
 	best_a = None
 	best_val = None
@@ -54,31 +58,28 @@ def actionProgWiden(h, ka, aa, c):
 		if(best_val == None or val > best_val):
 			best_val = val
 			best_a = a
-
 	return a
 
-def simulate_pomcpow(s, h, d, ka, aa, c):
+def simulate_pomcpow(s, h, d, ka, aa, ko, ao, c):
 	if(d == 0):
 		return 0
 
 	a = actionProgWiden(h, ka, aa, c)
 	new_s, o, r = nextState(s, a)
 
-	if(a not in h["children"]):
-		h["children"][a] = {"children":{}, "Q":0, "visits": 1}
-
-	if(len(h["children"][a]["children"]) <= ka*(h["children"][a]["visits"]**aa)):
+	if(len(h["children"][a]["children"]) <= ko*(h["children"][a]["visits"]**ao)):
 		if((a, o) not in h["seqs"]):
 			h["seqs"][(a, o)] = 0
 		h["seqs"][(a,o)] += 1
 	else:
-		o = np.random.choice((seq[1] for seq in h["seqs"].keys()), 
-				v/sum(h["seqs"].values() for v in h["seqs"].values()))
+		tot = sum(h["seqs"].values())
+		o = np.random.choice(a=[seq[1] for seq in h["seqs"].keys()], 
+							 p=[v/tot for v in h["seqs"].values()])
 
 
 
 	if(o not in h["children"][a]["children"]):
-		h["children"][a]["children"][o] = {"children": {}, "visits": 0, "seqs": {}, 
+		h["children"][a]["children"][o] = {"children": {}, "visits": 1, "seqs": {}, 
 											"states": [], "weigts": {}, 
 											"remaining_funds": h["remaining_funds"] - a}
 
@@ -88,10 +89,16 @@ def simulate_pomcpow(s, h, d, ka, aa, c):
 		h["children"][a]["children"][o]["states"].append(new_s)
 		h["children"][a]["children"][o]["weigts"][new_s] = norm.pdf(o, loc = new_s.support, scale = POLLING_SD)
 
-		new_s = np.random.choice((s for s in h["children"][a]["children"][o]["states"]), 
-				v/sum(h["children"][a]["children"][o]["weigts"].values() for v in h["children"][a]["children"][o]["weigts"].values()))
+		tot = sum(h["children"][a]["children"][o]["weigts"].values())
+		
+		# is this necessary?
+		if(tot == 0):
+			new_s = np.random.choice([s for s in h["children"][a]["children"][o]["states"]])
+		else:
+			new_s = np.random.choice(a = [s for s in h["children"][a]["children"][o]["states"]], 
+				    p = [v/tot for v in h["children"][a]["children"][o]["weigts"].values()])
 		r = generate_reward(new_s, a)
-		total = r + simulate_pomcpow(new_s, h["children"][a]["children"][o], d-1)
+		total = r + simulate_pomcpow(new_s, h["children"][a]["children"][o], d-1, ka, aa, ko, ao, c)
 
 	h["visits"] += 1
 	h["children"][a]["visits"] += 1
@@ -150,6 +157,13 @@ def rollout(s, h, d):
 		else:
 			return (-1*needed_contribution) +  sum(100 * ((s.max_rounds-n+1)/s.max_rounds+1) for n in range(s.n_rounds-2, -1, -1))
 
+prior = 0.5
+n = 1000
+ka = 30
+aa = 1.0/30
+ko = 5
+ao = 0.01
+c = 110
+d = 10
 
-
-print(plan_pomcpow(0.5, 10))
+print(plan_pomcpow(prior, n, d, ka, aa, ko, ao, c, start_funds=10000))

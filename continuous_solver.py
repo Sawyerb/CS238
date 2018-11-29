@@ -31,6 +31,8 @@ def plan_pomcpow(b, n, d=1, ka=1, aa=1, ko = 1, ao = 1, c=1, start_support = 0.5
 	best_a = None
 	best_val = None
 	for a in start_h["children"].keys():
+		print(a)
+		print(stats["Q"])
 		stats = start_h["children"][a]
 		val = stats["Q"]
 		if(best_val == None or val > best_val):
@@ -102,13 +104,13 @@ def simulate_pomcpow(s, h, d, ka, aa, ko, ao, c):
 
 	h["visits"] += 1
 	h["children"][a]["visits"] += 1
-	h["children"][a]["Q"] += h["children"][a]["Q"] + (total-h["children"][a]["Q"])/h["children"][a]["visits"]
+	h["children"][a]["Q"] += (total-h["children"][a]["Q"])/h["children"][a]["visits"]
 
 	return total
 
 
 def nextState(s, a):
-	params = (0.7841752015528167, 2.1022996225901887, 0.575376571272233, 0.08088203534323207)
+	params = (-1.220215081837054, 0.9160324660574186, 0.638390131996225, 0.0798918035032058)
 	new_s = state()
 	new_s.remaining_funds = s.remaining_funds - a
 	new_s.candadite_funds = s.candadite_funds + a
@@ -116,7 +118,8 @@ def nextState(s, a):
 	new_s.max_rounds = s.max_rounds
 
 	# get just one sample from vote per money distribution
-	sample = st.nct.rvs(loc=params[-2], scale=params[-1], *params[:-2], size=1)[0]
+	sample = st.johnsonsu.rvs(loc=params[-2], scale=params[-1], *params[:-2], size=1)[0]
+	sample = 1
 	money_percent = new_s.candadite_funds / float(new_s.candadite_funds + new_s.opp_funds)
 	new_s.support = min(1, money_percent*sample) # current money % * number of vote % per money %
 											     # its not possible to get more than 100% of the votes
@@ -129,9 +132,9 @@ def nextState(s, a):
 	return (new_s, o, r)
 
 def generate_obs(s):
-	params = (2.6406947480849725, -0.0019424092309923147, 0.8958540043646522, 0.12025183064941297)
+	params = (-0.11831752848651322, 0.898170472604464, 0.06716771963319479)
 	# get just one sample from poll per vote distribution
-	sample = st.nct.rvs(loc=params[-2], scale=params[-1], *params[:-2], size=1)[0]
+	sample = st.tukeylambda.rvs(loc=params[-2], scale=params[-1], *params[:-2], size=1)[0]
 	o = s.support*sample # current vote % * number of poll % per vote %
 	return o
 
@@ -141,6 +144,10 @@ def generate_reward(s, a):
 	if(s.support > 0.5):
 		r += 100 * ((s.max_rounds-s.n_rounds+1)/s.max_rounds+1)
 	
+	# print("suppport: " + str(s.support))
+	# print("rounds: " + str(s.n_rounds))
+	# print("action: " + str(a))
+	# print("reward: " + str(r))
 	return r
 
 def rollout(s, h, d):
@@ -148,8 +155,10 @@ def rollout(s, h, d):
 	if(s.support > 0.5):
 		return sum(100 * ((s.max_rounds-n+1)/s.max_rounds+1) for n in range(s.n_rounds-1, -1, -1))
 	else:
-		params = (0.7841752015528167, 2.1022996225901887, 0.575376571272233, 0.08088203534323207)
-		sample = st.nct.rvs(loc=params[-2], scale=params[-1], *params[:-2], size=1)[0]
+		params = (-1.220215081837054, 0.9160324660574186, 0.638390131996225, 0.0798918035032058)
+		# get just one sample from vote per money distribution
+		sample = st.johnsonsu.rvs(loc=params[-2], scale=params[-1], *params[:-2], size=1)[0]
+		sample = 1
 		money_percent = s.candadite_funds / float(s.candadite_funds + s.opp_funds)
 		needed_contribution = (0.5-s.support)/money_percent
 		if(needed_contribution > s.remaining_funds):
@@ -166,4 +175,4 @@ ao = 0.01
 c = 110
 d = 10
 
-print(plan_pomcpow(prior, n, d, ka, aa, ko, ao, c, start_funds=10000))
+#print(plan_pomcpow(prior, n, d, ka, aa, ko, ao, c, start_funds=10000))

@@ -8,6 +8,8 @@ from gamemaker import calculateScore
 POLLING_SD = 0.02
 INITIAL_FUNDS = 1000000
 
+
+
 # particle filter algorithm from page 140
 def updateBelief(b, a, oldPoll, poll, numSamples, topSamples):
 	samples = []

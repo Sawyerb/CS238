@@ -153,7 +153,7 @@ def visualize_relationships():
     plt.title('vote percent per money percent')
     x = np.array(votes) / np.array(money)
     x = x[~np.isinf(x)]
-    x = x[x < 10] # remove outliers
+    x = x[x < 2] # remove outliers
     np.save('./data/vote_per_money.npy', x)
     best_fit_name, best_fit_params = find_best_fit(x)
     print "Best fit for vote per money:", best_fit_name, best_fit_params
@@ -178,7 +178,7 @@ def visualize_relationships():
     plt.title('poll percent per vote percent')
     x = np.array(poll) / np.array(votes)
     x = x[~np.isinf(x)]
-    x = x[x < 10] # remove outliers
+    x = x[x < 2] # remove outliers
     np.save('./data/poll_per_vote.npy', x)
     best_fit_name, best_fit_params = find_best_fit(x)
     print "Best fit for poll per vote:", best_fit_name, best_fit_params

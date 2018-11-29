@@ -6,10 +6,6 @@ using Random
 
 # state, action, observation
 mutable struct DonationsPOMDP <: POMDP{Tuple{Int64, Int64, Int64}, Int64, Tuple{Int64, Int64, Int64}}
-    #o_mean::Float64 # mean of normal dist vote -> poll
-    #o_std::Float64 # std of normal dist vote -> poll
-    #t_mean::Float64 # money -> vote
-    #t_std::Float64 # money -> vote
     win_r::Int64 # winning reward
     total_steps::Int64
     initial_supp::Int64

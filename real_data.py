@@ -154,15 +154,12 @@ def visualize_relationships():
     x = np.array(votes) / np.array(money)
     x = x[~np.isinf(x)]
     x = x[x < 2] # remove outliers
+    print list(x)
     np.save('./data/vote_per_money.npy', x)
     best_fit_name, best_fit_params = find_best_fit(x)
     print "Best fit for vote per money:", best_fit_name, best_fit_params
     best_dist = getattr(st, best_fit_name)
     plt.plot(sorted(x), best_dist.pdf(sorted(x), loc=best_fit_params[-2], scale=best_fit_params[-1], *best_fit_params[:-2]))
-    #a, b, loc, scale = st.beta.fit(x)
-    #plt.plot(sorted(x), st.beta.pdf(sorted(x), a, b, loc, scale), label='beta')
-    #nparam_density = st.kde.gaussian_kde(x)
-    #plt.plot(sorted(x), nparam_density(sorted(x)), label='gaussian')
     plt.hist(x, density=True, bins=200)
     plt.legend()
     plt.savefig('./data/vote_per_money.png')
@@ -179,15 +176,12 @@ def visualize_relationships():
     x = np.array(poll) / np.array(votes)
     x = x[~np.isinf(x)]
     x = x[x < 2] # remove outliers
+    print list(x)
     np.save('./data/poll_per_vote.npy', x)
     best_fit_name, best_fit_params = find_best_fit(x)
     print "Best fit for poll per vote:", best_fit_name, best_fit_params
     best_dist = getattr(st, best_fit_name)
     plt.plot(sorted(x), best_dist.pdf(sorted(x), loc=best_fit_params[-2], scale=best_fit_params[-1], *best_fit_params[:-2]))
-    #a, b, loc, scale = st.beta.fit(x)
-    #plt.plot(sorted(x), st.beta.pdf(sorted(x), a, b, loc, scale), label='beta')
-    #nparam_density = st.kde.gaussian_kde(x)
-    #plt.plot(sorted(x), nparam_density(sorted(x)), label='gaussian')
     plt.hist(x, density=True, bins=100)
     plt.legend()
     plt.savefig('./data/poll_per_vote.png')

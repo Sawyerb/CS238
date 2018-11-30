@@ -11,17 +11,17 @@ class Election():
 		self.money = init_money*starting_support # just pretend it's 1:1 to start
 	
 	def generatePoll(self):
-		params = (2.6406947480849725, -0.0019424092309923147, 0.8958540043646522, 0.12025183064941297)
+		params = (-0.11831752848651322, 0.898170472604464, 0.06716771963319479)
 		# get just one sample from poll per vote distribution
-		sample = st.nct.rvs(loc=params[-2], scale=params[-1], *params[:-2], size=1)[0]
+		sample = st.tukeylambda.rvs(loc=params[-2], scale=params[-1], *params[:-2], size=1)[0]
 		poll_outcome = self.support*sample # current vote % * number of poll % per vote %
 		return poll_outcome
 
 	def updateSupport(self, new_spending):
 		self.money += new_spending
-		params = (0.7841752015528167, 2.1022996225901887, 0.575376571272233, 0.08088203534323207)
+		params = (-1.220215081837054, 0.9160324660574186, 0.638390131996225, 0.0798918035032058)
 		# get just one sample from vote per money distribution
-		sample = st.nct.rvs(loc=params[-2], scale=params[-1], *params[:-2], size=1)[0]
+		sample = st.johnsonsu.rvs(loc=params[-2], scale=params[-1], *params[:-2], size=1)[0]
 		sample = 1
 		money_percent = self.money / float(self.money + self.opp_money)
 		old_support = self.support

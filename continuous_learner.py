@@ -15,7 +15,7 @@ KO = 5
 AO = 0.01
 C = 110
 
-START_SUPPORT = 0.45
+START_SUPPORT = 0.55
 ROUNDS = 5
 
 def calculateScore(won, donor):
@@ -43,7 +43,7 @@ contributed = 0
 while(election.n_rounds != 0):
 	poll = election.generatePoll()
 	print("In round " + str(i) + ", candidate had " + str(round(poll, 2)) + " vote share")
-	contribution = continuous_solver.plan_pomcpow(poll, N, election.n_rounds, KA, AA, KO,
+	contribution = continuous_solver.plan_pftdpw(poll, N, election.n_rounds, KA, AA, KO,
 							 AO, C, START_SUPPORT, donor.funds, election.n_rounds)
 
 

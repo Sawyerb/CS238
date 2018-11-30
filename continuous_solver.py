@@ -5,6 +5,7 @@ import donor
 from scipy.stats import norm
 import scipy.stats as st
 from tqdm import tqdm
+import random
 
 
 POLLING_SD = 0.02
@@ -33,7 +34,7 @@ def plan_pomcpow(b, n, d=1, ka=1, aa=1, ko = 1, ao = 1, c=1, start_support = 0.5
 	best_val = 0
 	for a in start_h["children"].keys():
 		stats = start_h["children"][a]
-		print(str(a) + " | " + str(stats["Q"]))
+		print(str(a) + " | " + str(stats["Q"]) + " | " + str(stats["visits"]))
 		val = stats["Q"]
 		if(val > best_val):
 			best_val = val
@@ -56,6 +57,7 @@ def actionProgWiden(s, h, ka, aa, c):
 			needed_contribution = (s.candadite_funds -s.candadite_funds*C - s.opp_funds*C)/(C-1)
 			needed_contribution = max(10, needed_contribution)
 			max_contribution = min(h["remaining_funds"], needed_contribution*3)
+		
 			a = np.random.uniform(0, max_contribution)
 			if(a not in h["children"].keys()):
 				h["children"][a] = {"Q": 0, "visits": 1, "children":{}}
@@ -86,8 +88,6 @@ def simulate_pomcpow(s, h, d, ka, aa, ko, ao, c):
 		tot = sum(h["seqs"].values())
 		o = np.random.choice(a=[seq[1] for seq in h["seqs"].keys()], 
 							 p=[v/tot for v in h["seqs"].values()])
-
-
 
 	if(o not in h["children"][a]["children"]):
 		h["children"][a]["children"][o] = {"children": {}, "visits": 1, "seqs": {}, 
@@ -180,6 +180,92 @@ def rollout(s, h, d):
 		else:
 			return (-1*needed_contribution) +  sum(100 * ((s.max_rounds-n+1)/(s.max_rounds+1)) for n in range(s.n_rounds-2, -1, -1))
 
+
+def plan_pftdpw(b, n, d=1, ka=1, aa=1, ko = 1, ao = 1, c=1, start_support = 0.5, 
+				 start_funds = 1, max_rounds = 10):
+	start_b = {"value": b, "children": {}, "visits": 1, "seqs": {}, 
+				"remaining_funds": start_funds}
+
+	for i in tqdm(range(n)):
+		s = np.random.normal(b, POLLING_SD)
+		start_state = state(start_support, start_funds, start_funds*start_support, start_funds*(1-start_support), max_rounds, max_rounds)
+		simulate_pftdpw(start_state, start_b, d, ka, aa, ko, ao, c)
+
+	best_a = 0
+	best_val = 0
+	for a in start_b["children"].keys():
+		stats = start_b["children"][a]
+		print(str(a) + " | " + str(stats["Q"]) + " | " + str(stats["visits"]))
+		val = stats["Q"]
+		if(val > best_val):
+			best_val = val
+			best_a = a
+
+	#print(start_h)
+	return best_a
+
+def simulate_pftdpw(s, b, d, ka, aa, ko, ao, c):
+	if(d == 0):
+		return 0
+
+	a = actionProgWiden(s, b, ka, aa, c)
+	new_s = s
+	new_s.candadite_funds += a
+	new_s.n_rounds -= 1
+
+	if(len(b["children"][a]["children"]) <= ko*(b["children"][a]["visits"]**ao)):
+		new_b, r = updateBelief(b, s, a, 1000, 50)
+		new_s.support = new_b
+		total = r + rollout(new_s, b["children"][a]["children"][new_b], d-1)
+
+	else:
+		key, new_b = random.choice(list(b["children"][a]["children"].items()))
+		new_s.support = new_b["value"]
+		r = new_b["reward"]
+		total = r + simulate_pftdpw(new_s, new_b, d-1, ka, aa, ko, ao, c)
+
+	b["visits"] += 1
+	b["children"][a]["visits"] += 1
+	b["children"][a]["Q"] += (total-b["children"][a]["Q"])/b["children"][a]["visits"]
+
+	return total
+
+# particle filter algorithm from page 140
+def updateBelief(b, s, a, numSamples, topSamples):
+	samples = []
+	weights = []
+	for i in range(numSamples):
+		#moneyEffect = random.uniform(-0.000001,0.000003) # range of spending effects
+		support = np.random.uniform(0, 1)
+		# sample = 1
+		# money_percent = s.candadite_funds / (s.candadite_funds + s.opp_funds)
+		# old_support = s.support
+		# s.support = money_percent*sample # current money % * number of vote % per money %
+		# newSupport = min(1, s.support)
+
+		weight = norm.pdf(b["value"], loc = support, scale = POLLING_SD)
+		samples.append(support)
+		weights.append(weight)
+
+	tot = sum(weights)
+	weights = [w/tot for w in weights]
+
+	moneyEffect = 0
+	for i in range(topSamples):
+		sampleIndex = np.random.choice(a = numSamples, p = weights)
+		sample = samples[sampleIndex]
+		moneyEffect += sample
+
+	new_b = moneyEffect/topSamples
+
+	r = -1*a
+	if(new_b > 0.5):
+		r += 100 * ((s.max_rounds-s.n_rounds+1)/(s.max_rounds+1))
+
+	b["children"][a]["children"][new_b] = {"value": new_b, "reward": r, "children": {},
+					"visits": 1, "seqs": {}, "remaining_funds": b["remaining_funds"] - a}
+	return new_b, r
+
 prior = 0.5
 n = 1000
 ka = 30
@@ -189,4 +275,4 @@ ao = 0.01
 c = 110
 d = 10
 
-#print(plan_pomcpow(prior, n, d, ka, aa, ko, ao, c, start_funds=10000))
+#print(plan_pftdpw(prior, n, d, ka, aa, ko, ao, c, start_funds=10000))

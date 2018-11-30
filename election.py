@@ -14,6 +14,7 @@ class Election():
 		params = (-0.11831752848651322, 0.898170472604464, 0.06716771963319479)
 		# get just one sample from poll per vote distribution
 		sample = st.tukeylambda.rvs(loc=params[-2], scale=params[-1], *params[:-2], size=1)[0]
+		sample = 1
 		poll_outcome = self.support*sample # current vote % * number of poll % per vote %
 		return poll_outcome
 

@@ -6,6 +6,7 @@ from scipy.stats import norm
 import scipy.stats as st
 from tqdm import tqdm
 import random
+import copy
 
 
 POLLING_SD = 0.02
@@ -34,17 +35,15 @@ def plan_pomcpow(b, n, d=1, ka=1, aa=1, ko = 1, ao = 1, c=1, start_support = 0.5
 	best_val = 0
 	for a in start_h["children"].keys():
 		stats = start_h["children"][a]
-		print(str(a) + " | " + str(stats["Q"]) + " | " + str(stats["visits"]))
+		print(str(a) + " | " + str(stats["Q"]) + " | " + str(stats["visits"]) + " | " + str(math.sqrt(math.log(start_h["visits"])/stats["visits"])))
 		val = stats["Q"]
 		if(val > best_val):
 			best_val = val
 			best_a = a
 
-	#print(start_h)
 	return best_a
 
 def actionProgWiden(s, h, ka, aa, c):
-	#print(h["remaining_funds"])
 	if (len(h["children"].keys()) <= ka*(h["visits"]**aa)):
 		while(True):
 			params = (-1.220215081837054, 0.9160324660574186, 0.638390131996225, 0.0798918035032058)
@@ -53,11 +52,13 @@ def actionProgWiden(s, h, ka, aa, c):
 			sample = 1
 			money_percent = s.candadite_funds / float(s.candadite_funds + s.opp_funds)
 			needed_more_money_perecent = (0.5 - s.support)/sample
+
 			C = money_percent + needed_more_money_perecent
 			needed_contribution = (s.candadite_funds -s.candadite_funds*C - s.opp_funds*C)/(C-1)
+
 			needed_contribution = max(10, needed_contribution)
 			max_contribution = min(h["remaining_funds"], needed_contribution*3)
-		
+
 			a = np.random.uniform(0, max_contribution)
 			if(a not in h["children"].keys()):
 				h["children"][a] = {"Q": 0, "visits": 1, "children":{}}
@@ -71,7 +72,8 @@ def actionProgWiden(s, h, ka, aa, c):
 		if(best_val == None or val > best_val):
 			best_val = val
 			best_a = a
-	return a
+	
+	return best_a
 
 def simulate_pomcpow(s, h, d, ka, aa, ko, ao, c):
 	if(d == 0):
@@ -153,10 +155,6 @@ def generate_reward(s, a):
 	if(s.support > 0.5):
 		r += 100 * ((s.max_rounds-s.n_rounds+1)/(s.max_rounds+1))
 	
-	# print("suppport: " + str(s.support))
-	# print("rounds: " + str(s.n_rounds))
-	# print("action: " + str(a))
-	# print("reward: " + str(r))
 	return r
 
 def rollout(s, h, d):
@@ -182,39 +180,38 @@ def rollout(s, h, d):
 
 
 def plan_pftdpw(b, n, d=1, ka=1, aa=1, ko = 1, ao = 1, c=1, start_support = 0.5, 
-				 start_funds = 1, max_rounds = 10):
+				 start_funds = 1, max_rounds = 10, m=100):
 	start_b = {"value": b, "children": {}, "visits": 1, "seqs": {}, 
 				"remaining_funds": start_funds}
 
 	for i in tqdm(range(n)):
 		s = np.random.normal(b, POLLING_SD)
 		start_state = state(start_support, start_funds, start_funds*start_support, start_funds*(1-start_support), max_rounds, max_rounds)
-		simulate_pftdpw(start_state, start_b, d, ka, aa, ko, ao, c)
+		simulate_pftdpw(start_state, start_b, d, ka, aa, ko, ao, c, m)
 
 	best_a = 0
 	best_val = 0
 	for a in start_b["children"].keys():
 		stats = start_b["children"][a]
-		print(str(a) + " | " + str(stats["Q"]) + " | " + str(stats["visits"]))
+		print(str(a) + " | " + str(stats["Q"]) + " | " + str(stats["visits"]) + " | " + str(math.sqrt(math.log(start_b["visits"])/stats["visits"])) + " | " + str(stats["Q"] + c*math.sqrt(math.log(start_b["visits"])/stats["visits"])))
 		val = stats["Q"]
 		if(val > best_val):
 			best_val = val
 			best_a = a
 
-	#print(start_h)
 	return best_a
 
-def simulate_pftdpw(s, b, d, ka, aa, ko, ao, c):
+def simulate_pftdpw(s, b, d, ka, aa, ko, ao, c, m):
 	if(d == 0):
 		return 0
 
-	a = actionProgWiden(s, b, ka, aa, c)
-	new_s = s
+	a= actionProgWiden(s, b, ka, aa, c)
+	new_s = copy.copy(s)
 	new_s.candadite_funds += a
 	new_s.n_rounds -= 1
 
 	if(len(b["children"][a]["children"]) <= ko*(b["children"][a]["visits"]**ao)):
-		new_b, r = updateBelief(b, s, a, 1000, 50)
+		new_b, r = updateBelief(b, new_s, a, m)
 		new_s.support = new_b
 		total = r + rollout(new_s, b["children"][a]["children"][new_b], d-1)
 
@@ -222,7 +219,7 @@ def simulate_pftdpw(s, b, d, ka, aa, ko, ao, c):
 		key, new_b = random.choice(list(b["children"][a]["children"].items()))
 		new_s.support = new_b["value"]
 		r = new_b["reward"]
-		total = r + simulate_pftdpw(new_s, new_b, d-1, ka, aa, ko, ao, c)
+		total = r + simulate_pftdpw(new_s, new_b, d-1, ka, aa, ko, ao, c, m)
 
 	b["visits"] += 1
 	b["children"][a]["visits"] += 1
@@ -231,33 +228,32 @@ def simulate_pftdpw(s, b, d, ka, aa, ko, ao, c):
 	return total
 
 # particle filter algorithm from page 140
-def updateBelief(b, s, a, numSamples, topSamples):
+def updateBelief(b, s, a, numSamples):
 	samples = []
 	weights = []
-	for i in range(numSamples):
-		#moneyEffect = random.uniform(-0.000001,0.000003) # range of spending effects
-		support = np.random.uniform(0, 1)
-		# sample = 1
-		# money_percent = s.candadite_funds / (s.candadite_funds + s.opp_funds)
-		# old_support = s.support
-		# s.support = money_percent*sample # current money % * number of vote % per money %
-		# newSupport = min(1, s.support)
 
-		weight = norm.pdf(b["value"], loc = support, scale = POLLING_SD)
-		samples.append(support)
+	for i in range(numSamples):
+		rand_support = np.random.normal(s.support, POLLING_SD)
+		rand_state = state(rand_support,
+						   s.remaining_funds, s.remaining_funds*rand_support, 
+						s.remaining_funds*(1-rand_support), 1, 1)
+		new_s, o, r = nextState(rand_state, a)
+		weight = norm.pdf(o, loc = rand_support, scale = POLLING_SD)
+
+		samples.append(rand_support)
 		weights.append(weight)
 
 	tot = sum(weights)
 	weights = [w/tot for w in weights]
 
-	moneyEffect = 0
+	new_support = 0
+	topSamples = int(numSamples*0.1)
 	for i in range(topSamples):
 		sampleIndex = np.random.choice(a = numSamples, p = weights)
 		sample = samples[sampleIndex]
-		moneyEffect += sample
+		new_support += sample
 
-	new_b = moneyEffect/topSamples
-
+	new_b = new_support/topSamples
 	r = -1*a
 	if(new_b > 0.5):
 		r += 100 * ((s.max_rounds-s.n_rounds+1)/(s.max_rounds+1))

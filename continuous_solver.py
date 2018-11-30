@@ -6,6 +6,7 @@ from scipy.stats import norm
 import scipy.stats as st
 from tqdm import tqdm
 
+
 POLLING_SD = 0.02
 
 class state():
@@ -25,29 +26,37 @@ def plan_pomcpow(b, n, d=1, ka=1, aa=1, ko = 1, ao = 1, c=1, start_support = 0.5
 
 	for i in tqdm(range(n)):
 		s = np.random.normal(b, POLLING_SD)
-		start_state = state(start_support, start_funds, 1000000*start_support, 1000000*(1-start_support), max_rounds, max_rounds)
+		start_state = state(start_support, start_funds, start_funds*start_support, start_funds*(1-start_support), max_rounds, max_rounds)
 		simulate_pomcpow(start_state, start_h, d, ka, aa, ko, ao, c)
 
-	best_a = None
-	best_val = None
+	best_a = 0
+	best_val = 0
 	for a in start_h["children"].keys():
-		print(a)
-		print(stats["Q"])
 		stats = start_h["children"][a]
+		print(str(a) + " | " + str(stats["Q"]))
 		val = stats["Q"]
-		if(best_val == None or val > best_val):
+		if(val > best_val):
 			best_val = val
 			best_a = a
 
 	#print(start_h)
 	return best_a
 
-def actionProgWiden(h, ka, aa, c):
+def actionProgWiden(s, h, ka, aa, c):
 	#print(h["remaining_funds"])
 	if (len(h["children"].keys()) <= ka*(h["visits"]**aa)):
 		while(True):
-			a = np.random.uniform(0, h["remaining_funds"])
-			#print(a)
+			params = (-1.220215081837054, 0.9160324660574186, 0.638390131996225, 0.0798918035032058)
+			# get just one sample from vote per money distribution
+			sample = st.johnsonsu.rvs(loc=params[-2], scale=params[-1], *params[:-2], size=1)[0]
+			sample = 1
+			money_percent = s.candadite_funds / float(s.candadite_funds + s.opp_funds)
+			needed_more_money_perecent = (0.5 - s.support)/sample
+			C = money_percent + needed_more_money_perecent
+			needed_contribution = (s.candadite_funds -s.candadite_funds*C - s.opp_funds*C)/(C-1)
+			needed_contribution = max(10, needed_contribution)
+			max_contribution = min(h["remaining_funds"], needed_contribution*3)
+			a = np.random.uniform(0, max_contribution)
 			if(a not in h["children"].keys()):
 				h["children"][a] = {"Q": 0, "visits": 1, "children":{}}
 				break
@@ -66,7 +75,7 @@ def simulate_pomcpow(s, h, d, ka, aa, ko, ao, c):
 	if(d == 0):
 		return 0
 
-	a = actionProgWiden(h, ka, aa, c)
+	a = actionProgWiden(s, h, ka, aa, c)
 	new_s, o, r = nextState(s, a)
 
 	if(len(h["children"][a]["children"]) <= ko*(h["children"][a]["visits"]**ao)):
@@ -142,7 +151,7 @@ def generate_reward(s, a):
 	r = 0
 	r -= a
 	if(s.support > 0.5):
-		r += 100 * ((s.max_rounds-s.n_rounds+1)/s.max_rounds+1)
+		r += 100 * ((s.max_rounds-s.n_rounds+1)/(s.max_rounds+1))
 	
 	# print("suppport: " + str(s.support))
 	# print("rounds: " + str(s.n_rounds))
@@ -152,6 +161,9 @@ def generate_reward(s, a):
 
 def rollout(s, h, d):
 	#assue that the latest poll reflects the true support and donate accordingly
+	if(d==0):
+		return 0
+
 	if(s.support > 0.5):
 		return sum(100 * ((s.max_rounds-n+1)/s.max_rounds+1) for n in range(s.n_rounds-1, -1, -1))
 	else:
@@ -160,11 +172,13 @@ def rollout(s, h, d):
 		sample = st.johnsonsu.rvs(loc=params[-2], scale=params[-1], *params[:-2], size=1)[0]
 		sample = 1
 		money_percent = s.candadite_funds / float(s.candadite_funds + s.opp_funds)
-		needed_contribution = (0.5-s.support)/money_percent
+		needed_more_money_perecent = (0.5 - s.support)/sample
+		C = money_percent + needed_more_money_perecent
+		needed_contribution = (s.candadite_funds -s.candadite_funds*C - s.opp_funds*C)/(C-1)
 		if(needed_contribution > s.remaining_funds):
 			return 0
 		else:
-			return (-1*needed_contribution) +  sum(100 * ((s.max_rounds-n+1)/s.max_rounds+1) for n in range(s.n_rounds-2, -1, -1))
+			return (-1*needed_contribution) +  sum(100 * ((s.max_rounds-n+1)/(s.max_rounds+1)) for n in range(s.n_rounds-2, -1, -1))
 
 prior = 0.5
 n = 1000

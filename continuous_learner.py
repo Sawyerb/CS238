@@ -8,15 +8,15 @@ import continuous_solver
 POLLING_SD = 0.02
 INITIAL_FUNDS = 1000
 
-N = 10000
+N = 100000
 KA = 30
 AA = 1.0/30
 KO = 5
 AO = 0.01
 C = 110
 
-START_SUPPORT = 0.90
-ROUNDS = 10
+START_SUPPORT = 0.45
+ROUNDS = 5
 
 def calculateScore(won, donor):
 	'''
@@ -52,9 +52,12 @@ while(election.n_rounds != 0):
 	election.updateSupport(contribution)
 	
 	score -= contribution
+	print(score)
 	contributed += contribution
 	if(election.support > 0.5):
-		score += 100 * ((ROUNDS-election.n_rounds+1)/ROUNDS+1)
+		score += 100 * ((ROUNDS-election.n_rounds+1)/(ROUNDS+1))
+		print(100 * ((ROUNDS-election.n_rounds+1)/(ROUNDS+1)))
+	print(score)
 
 	i += 1
 	#x = 1/0

@@ -17,23 +17,23 @@ mutable struct DonationsPOMDP <: POMDP{Tuple{Int64, Int64, Int64}, Int64, Tuple{
     deterministic::Bool
 end
 
-DonationsPOMDP() = DonationsPOMDP(100, 10, 45, 100, 100, 100, false)
+DonationsPOMDP() = DonationsPOMDP(20, 10, 4, 10, 10, 10, false)
 
 POMDPs.updater(problem::DonationsPOMDP) = ParticleFilters(problem)
 
-POMDPs.actions(::DonationsPOMDP) = Tuple(0:100)
+POMDPs.actions(::DonationsPOMDP) = Tuple(0:10)
 
 POMDPs.actions(::DonationsPOMDP, s::Tuple{Int64, Int64, Int64}) = Tuple(0:s[3])
 
 POMDPs.actionindex(::DonationsPOMDP, a::Int64) = a + 1
 
-POMDPs.n_actions(::DonationsPOMDP) = 101
+POMDPs.n_actions(::DonationsPOMDP) = 11
 
 function POMDPs.states(pomdp::DonationsPOMDP)
     ret = []
     for num in 0:pomdp.total_steps
-        for vote_per in 0:100
-            for money in 0:100
+        for vote_per in 0:10
+            for money in 0:10
                 push!(ret, (num, vote_per, money))
             end
         end
@@ -42,19 +42,34 @@ function POMDPs.states(pomdp::DonationsPOMDP)
 end
 
 function POMDPs.stateindex(pomdp::DonationsPOMDP, s::Tuple{Int64, Int64, Int64})
-    a = zeros(pomdp.total_steps + 1, 101, 101)
+    a = zeros(pomdp.total_steps + 1, 11, 11)
     return LinearIndices(a)[s[1] + 1, s[2] + 1, s[3] + 1]
 end 
 
-POMDPs.n_states(pomdp::DonationsPOMDP) = (pomdp.total_steps + 1)*101*101
+POMDPs.n_states(pomdp::DonationsPOMDP) = (pomdp.total_steps + 1)*11*11
 
-POMDPs.observations(::DonationsPOMDP) = Tuple(0:100)
+function POMDPs.observations(::DonationsPOMDP) 
+    ret = Tuple{Int64, Int64, Int64}[]
+    for num in 0:pomdp.total_steps
+        for vote_per in 0:10
+            for money in 0:10
+                push!(ret, (num, vote_per, money))
+            end
+        end
+    end
+    return ret
+end
 
 POMDPs.obsindex(::DonationsPOMDP, o::Int64) = o + 1
 
-POMDPs.n_observations(::DonationsPOMDP) = 101
+POMDPs.n_observations(::DonationsPOMDP) = (pomdp.total_steps + 1)*11*11
 
-POMDPs.discount(p::DonationsPOMDP) = 1
+POMDPs.discount(p::DonationsPOMDP) = 1.0
+
+function POMDPs.initialstate_distribution(pomdp::DonationsPOMDP)
+    init_st = (pomdp.total_steps, pomdp.initial_supp, pomdp.initial_budg)
+    return SparseCat([init_st], [1.0])
+end
 
 function POMDPs.initialstate(pomdp::DonationsPOMDP, rng::AbstractRNG)
     return (pomdp.total_steps, pomdp.initial_supp, pomdp.initial_budg)
@@ -68,19 +83,19 @@ function POMDPs.transition(pomdp::DonationsPOMDP, s::Tuple{Int64, Int64, Int64},
     a = min(a, s[3]) # cannot give more than you have
     agent_money = s[3] - a
     pomdp.pol_money = pomdp.pol_money + a
-    money_percent = 100*pomdp.pol_money/(pomdp.pol_money + pomdp.opp_money)
+    money_percent = 10*pomdp.pol_money/(pomdp.pol_money + pomdp.opp_money)
     if pomdp.deterministic
         return SparseCat([(num_steps, Int(money_percent), agent_money)], [1.0])
     end
     supps = []
     for ratio in vote_money
-        support = min(floor(money_percent*ratio), 100)
+        support = min(floor(money_percent*ratio), 10)
         push!(supps, support)
     end
     counts = countmap(supps) 
     total = sum(values(counts))
-    states = []
-    probs = []
+    states = Tuple{Int64, Int64, Int64}[]
+    probs = Float64[]
     for (key, value) in counts 
         push!(states, (num_steps, Int(key), agent_money))
         push!(probs, value/total)
@@ -94,13 +109,13 @@ function POMDPs.observation(pomdp::DonationsPOMDP, a::Int64, sp::Tuple{Int64, In
     end
     polls = []
     for ratio in poll_vote
-        poll = min(floor(sp[2]*ratio), 100)
+        poll = min(floor(sp[2]*ratio), 10)
         push!(polls, poll)
     end
     counts = countmap(polls)
     total = sum(values(counts))
-    states = []
-    probs = []
+    states = Tuple{Int64, Int64, Int64}[]
+    probs = Float64[]
     for (key, value) in counts 
         push!(states, (sp[1], Int(key), sp[3]))
         push!(probs, value/total)
@@ -113,6 +128,8 @@ function POMDPs.reward(pomdp::DonationsPOMDP, s::Tuple{Int64, Int64, Int64}, a::
     r -= sp[3] # penalty for what you spent
     if sp[2] > 50
         r += pomdp.win_r * ((pomdp.total_steps-sp[1]+1)/pomdp.total_steps+1)
+    else
+        r -= pomdp.win_r * ((pomdp.total_steps-sp[1]+1)/pomdp.total_steps+1)
     end
     return r
 end
@@ -126,6 +143,8 @@ function POMDPs.reward(pomdp::DonationsPOMDP, s::Tuple{Int64, Int64, Int64}, a::
         reward -= sp[3] # penalty for what you spent
         if sp[2] > 50
             reward += pomdp.win_r * ((pomdp.total_steps-sp[1]+1)/pomdp.total_steps+1)
+        else
+            reward -= pomdp.win_r * ((pomdp.total_steps-sp[1]+1)/pomdp.total_steps+1)
         end
         r += reward*prob
     end

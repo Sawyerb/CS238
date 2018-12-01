@@ -9,7 +9,8 @@ import random
 import copy
 
 
-POLLING_SD = 0.02
+POLLING_SD = 0.005
+MAX_WIN_REWARD = 500
 
 class state():
 	def __init__(self, support = -1, remaining_funds = 0, candadite_funds = 0,
@@ -57,7 +58,7 @@ def actionProgWiden(s, h, ka, aa, c):
 			needed_contribution = (s.candadite_funds -s.candadite_funds*C - s.opp_funds*C)/(C-1)
 
 			needed_contribution = max(10, needed_contribution)
-			max_contribution = min(h["remaining_funds"], needed_contribution*3)
+			max_contribution = min(h["remaining_funds"], needed_contribution*1.5)
 
 			a = np.random.uniform(0, max_contribution)
 			if(a not in h["children"].keys()):
@@ -153,7 +154,7 @@ def generate_reward(s, a):
 	r = 0
 	r -= a
 	if(s.support > 0.5):
-		r += 100 * ((s.max_rounds-s.n_rounds+1)/(s.max_rounds+1))
+		r += MAX_WIN_REWARD * ((s.max_rounds-s.n_rounds+1)/(s.max_rounds+1))
 	
 	return r
 
@@ -163,7 +164,7 @@ def rollout(s, h, d):
 		return 0
 
 	if(s.support > 0.5):
-		return sum(100 * ((s.max_rounds-n+1)/s.max_rounds+1) for n in range(s.n_rounds-1, -1, -1))
+		return sum(MAX_WIN_REWARD * ((s.max_rounds-n+1)/s.max_rounds+1) for n in range(s.n_rounds-1, -1, -1))
 	else:
 		params = (-1.220215081837054, 0.9160324660574186, 0.638390131996225, 0.0798918035032058)
 		# get just one sample from vote per money distribution
@@ -176,7 +177,7 @@ def rollout(s, h, d):
 		if(needed_contribution > s.remaining_funds):
 			return 0
 		else:
-			return (-1*needed_contribution) +  sum(100 * ((s.max_rounds-n+1)/(s.max_rounds+1)) for n in range(s.n_rounds-2, -1, -1))
+			return (-1*needed_contribution) +  sum(MAX_WIN_REWARD * ((s.max_rounds-n+1)/(s.max_rounds+1)) for n in range(s.n_rounds-2, -1, -1))
 
 
 def plan_pftdpw(b, n, d=1, ka=1, aa=1, ko = 1, ao = 1, c=1, start_support = 0.5, 
@@ -205,18 +206,20 @@ def simulate_pftdpw(s, b, d, ka, aa, ko, ao, c, m):
 	if(d == 0):
 		return 0
 
-	a= actionProgWiden(s, b, ka, aa, c)
-	new_s = copy.copy(s)
-	new_s.candadite_funds += a
-	new_s.n_rounds -= 1
+	a = actionProgWiden(s, b, ka, aa, c)
+	s.n_rounds -= 1
 
 	if(len(b["children"][a]["children"]) <= ko*(b["children"][a]["visits"]**ao)):
-		new_b, r = updateBelief(b, new_s, a, m)
+		new_b, r = updateBelief(b, s, a, m)
+		new_s = copy.copy(s)
+		new_s.candadite_funds += a
 		new_s.support = new_b
 		total = r + rollout(new_s, b["children"][a]["children"][new_b], d-1)
 
 	else:
 		key, new_b = random.choice(list(b["children"][a]["children"].items()))
+		new_s = copy.copy(s)
+		new_s.candadite_funds += a
 		new_s.support = new_b["value"]
 		r = new_b["reward"]
 		total = r + simulate_pftdpw(new_s, new_b, d-1, ka, aa, ko, ao, c, m)
@@ -232,19 +235,40 @@ def updateBelief(b, s, a, numSamples):
 	samples = []
 	weights = []
 
+	temp_s = copy.copy(s)
+	temp_s.candadite_funds += a
+	temp_s.opp_funds -= a
+	o = generate_obs(temp_s)
 	for i in range(numSamples):
-		rand_support = np.random.normal(s.support, POLLING_SD)
-		rand_state = state(rand_support,
-						   s.remaining_funds, s.remaining_funds*rand_support, 
-						s.remaining_funds*(1-rand_support), 1, 1)
-		new_s, o, r = nextState(rand_state, a)
-		weight = norm.pdf(o, loc = rand_support, scale = POLLING_SD)
+		#rand_support = generate_obs(s)
+		
+		rand_support = np.random.normal(s.support, scale= POLLING_SD)
+		#print(rand_support)
+		rand_support = min(1, rand_support)
+		rand_support = max(0, rand_support)
 
-		samples.append(rand_support)
+		candadite_funds = s.candadite_funds
+		opp_funds = s.opp_funds
+		temp_s = copy.copy(s)
+		temp_s.candadite_funds = rand_support*(candadite_funds + opp_funds)
+		temp_s.opp_funds = (1-rand_support)*(candadite_funds + opp_funds)
+		#print("rand support: " + str(rand_support))
+		new_s, __, __ = nextState(temp_s, a)
+		#print("new support: " + str(new_s.support))
+		weight = norm.pdf(o, loc = new_s.support, scale = POLLING_SD)
+		
+		samples.append(new_s.support)
 		weights.append(weight)
 
+
 	tot = sum(weights)
-	weights = [w/tot for w in weights]
+	if(tot != 0):
+		weights = [w/tot for w in weights]
+	else:
+		weights = [1.0/len(samples) for w in weights]
+	#for i in range(len(weights)):
+	# 	print(str(samples[i]) + " | " + str(weights[i]))
+
 
 	new_support = 0
 	topSamples = int(numSamples*0.1)
@@ -256,10 +280,10 @@ def updateBelief(b, s, a, numSamples):
 	new_b = new_support/topSamples
 	r = -1*a
 	if(new_b > 0.5):
-		r += 100 * ((s.max_rounds-s.n_rounds+1)/(s.max_rounds+1))
-
+		r += MAX_WIN_REWARD * ((s.max_rounds-s.n_rounds+1)/(s.max_rounds+1))
 	b["children"][a]["children"][new_b] = {"value": new_b, "reward": r, "children": {},
 					"visits": 1, "seqs": {}, "remaining_funds": b["remaining_funds"] - a}
+	#x = 1/0
 	return new_b, r
 
 prior = 0.5

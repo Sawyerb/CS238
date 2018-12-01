@@ -9,24 +9,25 @@ POLLING_SD = 0.02
 INITIAL_FUNDS = 1000
 
 # for pomcpow
-# N = 1000
-# KA = 30
-# AA = 1.0/30
-# KO = 5
-# AO = 0.01
-# C = 110
+N = 1000
+KA = 30
+AA = 1.0/30
+KO = 5
+AO = 0.01
+C = 110
 
 # for pft-dpw
-N = 1000
-KA = 20
-AA = 1.0/25
-KO = 8
-AO = 1.0/85
-C = 50
-m = 200
+# N = 1000
+# KA = 20
+# AA = 1.0/25
+# KO = 8
+# AO = 1.0/85
+# C = 50
+# m = 500
 
-START_SUPPORT = 0.47
-ROUNDS = 1
+START_SUPPORT = 0.0
+ROUNDS = 5
+MAX_WIN_REWARD = 500
 
 def calculateScore(won, donor):
 	'''
@@ -52,11 +53,11 @@ score = 0
 contributed = 0
 while(election.n_rounds != 0):
 	poll = election.generatePoll()
-	poll = 0.49
 	print("In round " + str(i) + ", candidate had " + str(round(poll, 2)) + " vote share")
-	contribution = continuous_solver.plan_pftdpw(poll, N, election.n_rounds, KA, AA, KO,
-							 AO, C, START_SUPPORT, donor.funds, election.n_rounds, m)
-
+	#contribution = continuous_solver.plan_pftdpw(poll, N, election.n_rounds, KA, AA, KO,
+	#						 AO, C, START_SUPPORT, donor.funds, election.n_rounds, m)
+	contribution = continuous_solver.plan_pomcpow(poll, N, election.n_rounds, KA, AA, KO,
+							 AO, C, START_SUPPORT, donor.funds, election.n_rounds)
 
 	print("In round " + str(i) + ", donor contributed " + str(contribution))
 	donor.makeContribution(contribution)
@@ -66,12 +67,11 @@ while(election.n_rounds != 0):
 	print(score)
 	contributed += contribution
 	if(election.support > 0.5):
-		score += 100 * ((ROUNDS-election.n_rounds+1)/(ROUNDS+1))
-		print(100 * ((ROUNDS-election.n_rounds+1)/(ROUNDS+1)))
+		score += MAX_WIN_REWARD * ((ROUNDS-election.n_rounds+1)/(ROUNDS+1))
+		print(MAX_WIN_REWARD * ((ROUNDS-election.n_rounds+1)/(ROUNDS+1)))
 	print(score)
 
 	i += 1
-	#x = 1/0
 
 print("Result: candidate received " + str(round(election.support, 2)) + " vote share")
 if(election.support > 0.5):

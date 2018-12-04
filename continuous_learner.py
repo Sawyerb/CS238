@@ -6,11 +6,11 @@ from election import Election
 import continuous_solver
 import baseline_solver
 
-POLLING_SD = 0.02
+POLLING_SD = 0.005
 INITIAL_FUNDS = 1000
 
 # for pomcpow
-# N = 1000
+# N = 10000
 # KA = 30
 # AA = 1.0/30
 # KO = 5
@@ -26,8 +26,8 @@ AO = 1.0/85
 C = 100
 m = 500
 
-START_SUPPORT = 0.40
-ROUNDS = 5
+START_SUPPORT = 0.1
+ROUNDS = 3
 MAX_WIN_REWARD = 500
 
 def calculateScore(won, donor):
@@ -54,13 +54,14 @@ score = 0
 contributed = 0
 while(election.n_rounds != 0):
 	poll = election.generatePoll()
+	#poll = 0.4
 	print("In round " + str(i) + ", candidate had " + str(round(poll, 2)) + " vote share")
-	# contribution = continuous_solver.plan_pftdpw(poll, N, election.n_rounds, KA, AA, KO,
-	# 						 AO, C, START_SUPPORT, donor.funds, election.n_rounds, m)
+	contribution = continuous_solver.plan_pftdpw(poll, N, election.n_rounds, KA, AA, KO,
+	 						 AO, C, START_SUPPORT, donor.funds, election.n_rounds, m)
 	#contribution = continuous_solver.plan_pomcpow(poll, N, election.n_rounds, KA, AA, KO,
 	#						 AO, C, election.support, donor.funds, election.money + election.opp_money,
 	#						 election.n_rounds)
-	contribution = baseline_solver.make_contribution(poll, donor.funds, election.money, election.opp_money)
+	#contribution = baseline_solver.make_contribution(poll, donor.funds, election.money, election.opp_money)
 
 	print("In round " + str(i) + ", donor contributed " + str(contribution))
 	donor.makeContribution(contribution)

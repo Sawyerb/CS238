@@ -12,18 +12,14 @@ mutable struct DonationsPOMDP <: POMDP{Tuple{Int64, Int64, Int64}, Int64, Tuple{
     total_steps::Int64
     initial_supp::Int64
     initial_budg::Int64
-    opp_money::Int64 # opponent's money
-    pol_money::Int64 # supported politician's money
+    opp_money::Int64 # opponent's initial money
+    pol_money::Int64 # supported politician's initial money
     deterministic::Bool
 end
 
-DonationsPOMDP() = DonationsPOMDP(20, 10, 4, 10, 10, 10, false)
-
 POMDPs.updater(problem::DonationsPOMDP) = ParticleFilters(problem)
 
-POMDPs.actions(::DonationsPOMDP) = Tuple(0:10)
-
-POMDPs.actions(::DonationsPOMDP, s::Tuple{Int64, Int64, Int64}) = Tuple(0:s[3])
+POMDPs.actions(pomdp::DonationsPOMDP) = collect(0:pomdp.initial_budg)
 
 POMDPs.actionindex(::DonationsPOMDP, a::Int64) = a + 1
 
@@ -82,10 +78,10 @@ function POMDPs.transition(pomdp::DonationsPOMDP, s::Tuple{Int64, Int64, Int64},
     end
     a = min(a, s[3]) # cannot give more than you have
     agent_money = s[3] - a
-    pomdp.pol_money = pomdp.pol_money + a
-    money_percent = 10*pomdp.pol_money/(pomdp.pol_money + pomdp.opp_money)
+    our_pol_money = pomdp.pol_money + (pomdp.initial_budg - agent_money)
+    money_percent = 10*our_pol_money/(our_pol_money + pomdp.opp_money)
     if pomdp.deterministic
-        return SparseCat([(num_steps, Int(money_percent), agent_money)], [1.0])
+        return SparseCat([(num_steps, Int(floor(money_percent)), agent_money)], [1.0])
     end
     supps = []
     for ratio in vote_money
@@ -126,7 +122,7 @@ end
 function POMDPs.reward(pomdp::DonationsPOMDP, s::Tuple{Int64, Int64, Int64}, a::Int64, sp::Tuple{Int64, Int64, Int64})
     r = 0.0
     r -= sp[3] # penalty for what you spent
-    if sp[2] > 50
+    if sp[2] > 5
         r += pomdp.win_r * ((pomdp.total_steps-sp[1]+1)/pomdp.total_steps+1)
     else
         r -= pomdp.win_r * ((pomdp.total_steps-sp[1]+1)/pomdp.total_steps+1)
@@ -141,7 +137,7 @@ function POMDPs.reward(pomdp::DonationsPOMDP, s::Tuple{Int64, Int64, Int64}, a::
     for (sp, prob) in cats
         reward = 0.0
         reward -= sp[3] # penalty for what you spent
-        if sp[2] > 50
+        if sp[2] > 5
             reward += pomdp.win_r * ((pomdp.total_steps-sp[1]+1)/pomdp.total_steps+1)
         else
             reward -= pomdp.win_r * ((pomdp.total_steps-sp[1]+1)/pomdp.total_steps+1)

@@ -9,6 +9,7 @@ import StatsBase: countmap
 # state, action, observation
 mutable struct DonationsPOMDP <: POMDP{Tuple{Int64, Int64, Int64}, Int64, Tuple{Int64, Int64, Int64}}
     win_r::Int64 # winning reward
+    lose_r::Int64 # losing penalty
     total_steps::Int64
     initial_supp::Int64
     initial_budg::Int64
@@ -74,7 +75,7 @@ end
 function POMDPs.transition(pomdp::DonationsPOMDP, s::Tuple{Int64, Int64, Int64}, a::Int64)
     num_steps = s[1] - 1
     if num_steps <= 0 # end of race, can't do anything
-        return SparseCat([s], [1.0])
+        return SparseCat([(0, s[2], s[3])], [1.0])
     end
     a = min(a, s[3]) # cannot give more than you have
     agent_money = s[3] - a
@@ -121,11 +122,12 @@ end
 
 function POMDPs.reward(pomdp::DonationsPOMDP, s::Tuple{Int64, Int64, Int64}, a::Int64, sp::Tuple{Int64, Int64, Int64})
     r = 0.0
-    r -= sp[3] # penalty for what you spent
+    spent_money = pomdp.initial_budg - sp[3]
+    r -= spent_money # penalty for what you spent
     if sp[2] > 5
-        r += pomdp.win_r * ((pomdp.total_steps-sp[1]+1)/pomdp.total_steps+1)
+        r += pomdp.win_r * ((pomdp.total_steps-sp[1]+1)/(pomdp.total_steps+1))
     else
-        r -= pomdp.win_r * ((pomdp.total_steps-sp[1]+1)/pomdp.total_steps+1)
+        r -= pomdp.lose_r * ((pomdp.total_steps-sp[1]+1)/(pomdp.total_steps+1))
     end
     return r
 end
@@ -136,11 +138,12 @@ function POMDPs.reward(pomdp::DonationsPOMDP, s::Tuple{Int64, Int64, Int64}, a::
     cats = POMDPs.transition(pomdp, s, a)
     for (sp, prob) in cats
         reward = 0.0
-        reward -= sp[3] # penalty for what you spent
+        spent_money = pomdp.initial_budg - sp[3]
+        reward -= spent_money # penalty for what you spent
         if sp[2] > 5
-            reward += pomdp.win_r * ((pomdp.total_steps-sp[1]+1)/pomdp.total_steps+1)
+            reward += pomdp.win_r * ((pomdp.total_steps-sp[1]+1)/(pomdp.total_steps+1))
         else
-            reward -= pomdp.win_r * ((pomdp.total_steps-sp[1]+1)/pomdp.total_steps+1)
+            reward -= pomdp.lose_r * ((pomdp.total_steps-sp[1]+1)/(pomdp.total_steps+1))
         end
         r += reward*prob
     end

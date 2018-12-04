@@ -7,10 +7,10 @@ using BeliefUpdaters
 using Statistics
 using PyPlot
 
-function run_action(win_reward::Int64, total_steps::Int64, initial_supp::Int64, initial_budg::Int64, opp_money::Int64, pol_money::Int64, determin::Bool)
+function run_action(win_reward::Int64, lose_penalty::Int64, total_steps::Int64, initial_supp::Int64, initial_budg::Int64, opp_money::Int64, pol_money::Int64, determin::Bool)
     start = time()
     solver = QMDPSolver() 
-    pomdp = DonationsPOMDP(win_reward, total_steps, initial_supp, initial_budg, opp_money, pol_money, determin)
+    pomdp = DonationsPOMDP(win_reward, lose_penalty, total_steps, initial_supp, initial_budg, opp_money, pol_money, determin)
     planner = solve(solver, pomdp)
     println("TIME: ", time() - start)
 
@@ -37,13 +37,13 @@ function run_action(win_reward::Int64, total_steps::Int64, initial_supp::Int64, 
     return a_arr
 end
 
-function run_multiple_reward(win_reward::Int64, total_steps::Int64, initial_supp::Int64, initial_budg::Int64, opp_money::Int64, pol_money::Int64, determin::Bool)
+function run_multiple_reward(win_reward::Int64, lose_penalty::Int64, total_steps::Int64, initial_supp::Int64, initial_budg::Int64, opp_money::Int64, pol_money::Int64, determin::Bool)
     rr = zeros(10)
     pr = zeros(10)
     for i in 1:5
         start = time()
         solver = QMDPSolver() 
-        pomdp = DonationsPOMDP(win_reward, total_steps, initial_supp, initial_budg, opp_money, pol_money, determin)
+        pomdp = DonationsPOMDP(win_reward, lose_penalty, total_steps, initial_supp, initial_budg, opp_money, pol_money, determin)
         planner = solve(solver, pomdp)
         println("TIME: ", time() - start)
 
@@ -75,21 +75,22 @@ function main()
     total_steps = 10
     initial_supp = 5 
     initial_budg = 10
-    win_reward = 5
-    determin = true # are transitions deterministic? 
+    win_reward = 10
+    lose_penalty = 0
+    determin = true 
 
-    #average_rs = run_multiple_reward(win_reward, total_steps, initial_supp, initial_budg, opp_money, pol_money, determin)
+    #average_rs = run_multiple_reward(win_reward, lose_penalty, total_steps, initial_supp, initial_budg, opp_money, pol_money, determin)
     #println(average_rs)
 
     action_z = zeros(length(initial_supp_range), total_steps)
-    for i in 3:4 #1:length(initial_supp_range) # SOMETHING STILL DOESN'T ADD UP
+    for i in 1:length(initial_supp_range) # SOMETHING STILL DOESN'T ADD UP
         initial_supp = initial_supp_range[i]
         opp_money = Int(floor(initial_budg*(1-initial_supp/10)))
         pol_money = Int(floor(initial_budg*initial_supp/10))
         println("win_reward=", win_reward, ", total_steps=", total_steps, ", initial_supp=", initial_supp, ", initial_budg=", initial_budg)
         println("opp_money=", opp_money, ", pol_money=", pol_money, ", determin=", determin)
 
-        action_arr = run_action(win_reward, total_steps, initial_supp, initial_budg, opp_money, pol_money, determin)
+        action_arr = run_action(win_reward, lose_penalty, total_steps, initial_supp, initial_budg, opp_money, pol_money, determin)
         action_z[i,:] = action_arr
     end
 

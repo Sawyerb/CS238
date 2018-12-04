@@ -23,13 +23,14 @@ class state():
 		self.n_rounds = n_rounds
 
 def plan_pomcpow(b, n, d=1, ka=1, aa=1, ko = 1, ao = 1, c=1, start_support = 0.5, 
-				 start_funds = 1, max_rounds = 10):
+				 start_funds = 1, total_funds = 1, max_rounds = 10):
 	start_h = {"children": {}, "visits": 1, "seqs": {}, 
 				"remaining_funds": start_funds}
 
+	print("start support: " + str(b))
 	for i in tqdm(range(n)):
 		s = np.random.normal(b, POLLING_SD)
-		start_state = state(start_support, start_funds, start_funds*start_support, start_funds*(1-start_support), max_rounds, max_rounds)
+		start_state = state(s, start_funds, total_funds*b, total_funds*(1-b), max_rounds, max_rounds)
 		simulate_pomcpow(start_state, start_h, d, ka, aa, ko, ao, c)
 
 	best_a = 0
@@ -45,6 +46,11 @@ def plan_pomcpow(b, n, d=1, ka=1, aa=1, ko = 1, ao = 1, c=1, start_support = 0.5
 	return best_a
 
 def actionProgWiden(s, h, ka, aa, c):
+	#print("support: " + str(s.support))
+	
+	if(0 not in h["children"].keys()):
+		h["children"][0] = {"Q": 0, "visits": 1, "children":{}}
+
 	if (len(h["children"].keys()) <= ka*(h["visits"]**aa)):
 		while(True):
 			params = (-1.220215081837054, 0.9160324660574186, 0.638390131996225, 0.0798918035032058)
@@ -58,21 +64,27 @@ def actionProgWiden(s, h, ka, aa, c):
 			needed_contribution = (s.candadite_funds -s.candadite_funds*C - s.opp_funds*C)/(C-1)
 
 			needed_contribution = max(10, needed_contribution)
+			#print(needed_contribution)
 			max_contribution = min(h["remaining_funds"], needed_contribution*1.5)
-
+			#print(max_contribution)
 			a = np.random.uniform(0, max_contribution)
 			if(a not in h["children"].keys()):
 				h["children"][a] = {"Q": 0, "visits": 1, "children":{}}
 				break
 
-	best_a = None
-	best_val = None
+	best_a = 0
+	best_val = 0
+	best_visits = 0
 	for a in h["children"].keys():
 		stats = h["children"][a]
 		val = stats["Q"] + c*math.sqrt(math.log(h["visits"])/stats["visits"])
-		if(best_val == None or val > best_val):
+		visits = stats["visits"]
+		#print("a: " + str(a) + " | val: " + str(val))
+		if(val > best_val or (visits * 10) < best_visits):
+			#print("changing")
 			best_val = val
 			best_a = a
+			best_visits = visits
 	
 	return best_a
 
@@ -97,7 +109,14 @@ def simulate_pomcpow(s, h, d, ka, aa, ko, ao, c):
 											"states": [], "weigts": {}, 
 											"remaining_funds": h["remaining_funds"] - a}
 
+		# print("\n")
+		# print(s.support)
+		# print(new_s.support)
+		# print(a)
+		# print(r)
 		total = r + rollout(new_s, h["children"][a]["children"][o], d-1)
+		#print(total)
+		#x = 1/0
 	else:
 		# is this right?
 		h["children"][a]["children"][o]["states"].append(new_s)
@@ -163,8 +182,13 @@ def rollout(s, h, d):
 	if(d==0):
 		return 0
 
+	# print("rollout")
+	# print(d)
+	# print(s.max_rounds)
+	# print(s.n_rounds)
+	# print(sum(MAX_WIN_REWARD * ((s.max_rounds-n+1)/(s.max_rounds+1)) for n in range(s.n_rounds-1, -1, -1)))
 	if(s.support > 0.5):
-		return sum(MAX_WIN_REWARD * ((s.max_rounds-n+1)/s.max_rounds+1) for n in range(s.n_rounds-1, -1, -1))
+		return sum(MAX_WIN_REWARD * ((s.max_rounds-n+1)/(s.max_rounds+1)) for n in range(s.n_rounds-1, -1, -1))
 	else:
 		params = (-1.220215081837054, 0.9160324660574186, 0.638390131996225, 0.0798918035032058)
 		# get just one sample from vote per money distribution
@@ -174,7 +198,9 @@ def rollout(s, h, d):
 		needed_more_money_perecent = (0.5 - s.support)/sample
 		C = money_percent + needed_more_money_perecent
 		needed_contribution = (s.candadite_funds -s.candadite_funds*C - s.opp_funds*C)/(C-1)
-		if(needed_contribution > s.remaining_funds):
+		#print("needed: " + str(needed_contribution))
+		#print("remaining: " + str(s.remaining_funds))
+		if(needed_contribution >= s.remaining_funds):
 			return 0
 		else:
 			return (-1*needed_contribution) +  sum(MAX_WIN_REWARD * ((s.max_rounds-n+1)/(s.max_rounds+1)) for n in range(s.n_rounds-2, -1, -1))

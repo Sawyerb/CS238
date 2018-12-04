@@ -4,28 +4,29 @@ import numpy as np
 from donor import Donor
 from election import Election
 import continuous_solver
+import baseline_solver
 
 POLLING_SD = 0.02
 INITIAL_FUNDS = 1000
 
 # for pomcpow
-N = 1000
-KA = 30
-AA = 1.0/30
-KO = 5
-AO = 0.01
-C = 110
+# N = 1000
+# KA = 30
+# AA = 1.0/30
+# KO = 5
+# AO = 0.01
+# C = 200
 
 # for pft-dpw
-# N = 1000
-# KA = 20
-# AA = 1.0/25
-# KO = 8
-# AO = 1.0/85
-# C = 50
-# m = 500
+N = 1000
+KA = 20
+AA = 1.0/25
+KO = 8
+AO = 1.0/85
+C = 100
+m = 500
 
-START_SUPPORT = 0.0
+START_SUPPORT = 0.40
 ROUNDS = 5
 MAX_WIN_REWARD = 500
 
@@ -54,10 +55,12 @@ contributed = 0
 while(election.n_rounds != 0):
 	poll = election.generatePoll()
 	print("In round " + str(i) + ", candidate had " + str(round(poll, 2)) + " vote share")
-	#contribution = continuous_solver.plan_pftdpw(poll, N, election.n_rounds, KA, AA, KO,
-	#						 AO, C, START_SUPPORT, donor.funds, election.n_rounds, m)
-	contribution = continuous_solver.plan_pomcpow(poll, N, election.n_rounds, KA, AA, KO,
-							 AO, C, START_SUPPORT, donor.funds, election.n_rounds)
+	# contribution = continuous_solver.plan_pftdpw(poll, N, election.n_rounds, KA, AA, KO,
+	# 						 AO, C, START_SUPPORT, donor.funds, election.n_rounds, m)
+	#contribution = continuous_solver.plan_pomcpow(poll, N, election.n_rounds, KA, AA, KO,
+	#						 AO, C, election.support, donor.funds, election.money + election.opp_money,
+	#						 election.n_rounds)
+	contribution = baseline_solver.make_contribution(poll, donor.funds, election.money, election.opp_money)
 
 	print("In round " + str(i) + ", donor contributed " + str(contribution))
 	donor.makeContribution(contribution)

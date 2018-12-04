@@ -14,8 +14,8 @@ def make_contribution(support, donor_funds, candadite_funds, opp_funds):
 	C = money_percent + needed_more_money_perecent
 	needed_contribution = (candadite_funds -candadite_funds*C - opp_funds*C)/(C-1)
 	#print("needed: " + str(needed_contribution))
-	#print("remaining: " + str(s.remaining_funds))
-	if(needed_contribution >= donor_funds):
+	#print("remaining: " + str(donor_fundsds))
+	if(needed_contribution >= donor_funds or needed_contribution < 0):
 		return 0
 	else:
 		return needed_contribution

@@ -24,13 +24,13 @@ POMDPs.actions(pomdp::DonationsPOMDP) = collect(0:pomdp.initial_budg)
 
 POMDPs.actionindex(::DonationsPOMDP, a::Int64) = a + 1
 
-POMDPs.n_actions(::DonationsPOMDP) = 11
+POMDPs.n_actions(pomdp::DonationsPOMDP) = pomdp.initial_budg + 1
 
 function POMDPs.states(pomdp::DonationsPOMDP)
     ret = []
     for num in 0:pomdp.total_steps
         for vote_per in 0:10
-            for money in 0:10
+            for money in 0:pomdp.initial_budg
                 push!(ret, (num, vote_per, money))
             end
         end
@@ -39,17 +39,17 @@ function POMDPs.states(pomdp::DonationsPOMDP)
 end
 
 function POMDPs.stateindex(pomdp::DonationsPOMDP, s::Tuple{Int64, Int64, Int64})
-    a = zeros(pomdp.total_steps + 1, 11, 11)
+    a = zeros(pomdp.total_steps + 1, 11, pomdp.initial_budg + 1)
     return LinearIndices(a)[s[1] + 1, s[2] + 1, s[3] + 1]
 end 
 
-POMDPs.n_states(pomdp::DonationsPOMDP) = (pomdp.total_steps + 1)*11*11
+POMDPs.n_states(pomdp::DonationsPOMDP) = (pomdp.total_steps + 1)*11*(pomdp.initial_budg + 1)
 
 function POMDPs.observations(::DonationsPOMDP) 
     ret = Tuple{Int64, Int64, Int64}[]
     for num in 0:pomdp.total_steps
         for vote_per in 0:10
-            for money in 0:10
+            for money in 0:pomdp.initial_budg
                 push!(ret, (num, vote_per, money))
             end
         end
@@ -59,7 +59,7 @@ end
 
 POMDPs.obsindex(::DonationsPOMDP, o::Int64) = o + 1
 
-POMDPs.n_observations(::DonationsPOMDP) = (pomdp.total_steps + 1)*11*11
+POMDPs.n_observations(::DonationsPOMDP) = (pomdp.total_steps + 1)*11*(pomdp.initial_budg + 1)
 
 POMDPs.discount(p::DonationsPOMDP) = 1.0
 
@@ -137,20 +137,15 @@ function POMDPs.reward(pomdp::DonationsPOMDP, s::Tuple{Int64, Int64, Int64}, a::
     r = 0.0
     cats = POMDPs.transition(pomdp, s, a)
     for (sp, prob) in cats
-        println(sp, " ", prob)
         reward = 0.0
         spent_money = pomdp.initial_budg - sp[3]
-        println("spent money ", spent_money)
         reward -= spent_money # penalty for what you spent
-        println("after sub reward ", reward)
         if sp[2] > 5
             reward += pomdp.win_r * ((pomdp.total_steps-sp[1]+1)/(pomdp.total_steps+1))
         else
             reward -= pomdp.lose_r * ((pomdp.total_steps-sp[1]+1)/(pomdp.total_steps+1))
         end
-        println("after win reward ", reward)
         r += reward*prob
-        println("r after add ", r)
     end
     return r
 end

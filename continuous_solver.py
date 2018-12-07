@@ -1,3 +1,9 @@
+"""
+Implementations of the POMCPOW and PFT-DPW algorithms described in Sunberg and Kochenderfer, 2018
+
+"""
+
+
 import numpy as np
 import math
 import election
@@ -23,15 +29,15 @@ class state():
 		self.n_rounds = n_rounds
 
 def plan_pomcpow(b, n, d=1, ka=1, aa=1, ko = 1, ao = 1, c=1, start_support = 0.5, 
-				 start_funds = 1, total_funds = 1, max_rounds = 10, max_win_reward = 500):
+				 start_funds = 1, total_funds = 1, max_rounds = 10, max_win_reward = 500, max_lose_reward = 0,
+				 transition_effect = 1, transition_confidence = 0.1):
 	start_h = {"children": {}, "visits": 1, "seqs": {}, 
 				"remaining_funds": start_funds}
 
-	#print("start support: " + str(b))
-	for i in tqdm(range(n)):
+	for i in range(n):
 		s = np.random.normal(b, POLLING_SD)
 		start_state = state(s, start_funds, total_funds*b, total_funds*(1-b), max_rounds, max_rounds)
-		simulate_pomcpow(start_state, start_h, d, ka, aa, ko, ao, c, max_win_reward)
+		simulate_pomcpow(start_state, start_h, d, ka, aa, ko, ao, c, max_win_reward, max_lose_reward, transition_effect, transition_confidence)
 
 	best_a = 0
 	best_val = 0
@@ -45,18 +51,14 @@ def plan_pomcpow(b, n, d=1, ka=1, aa=1, ko = 1, ao = 1, c=1, start_support = 0.5
 
 	return best_a
 
-def actionProgWiden(s, h, ka, aa, c):
-	#print("support: " + str(s.support))
+def actionProgWiden(s, h, ka, aa, c, transition_effect):
 	
 	if(0 not in h["children"].keys()):
 		h["children"][0] = {"Q": 0, "visits": 1, "children":{}}
 
 	if (len(h["children"].keys()) <= ka*(h["visits"]**aa)):
 		while(True):
-			params = (-1.220215081837054, 0.9160324660574186, 0.638390131996225, 0.0798918035032058)
-			# get just one sample from vote per money distribution
-			sample = st.johnsonsu.rvs(loc=params[-2], scale=params[-1], *params[:-2], size=1)[0]
-			sample = 1
+			sample = transition_effect
 			money_percent = s.candadite_funds / float(s.candadite_funds + s.opp_funds)
 			needed_more_money_perecent = (0.5 - s.support)/sample
 
@@ -64,9 +66,7 @@ def actionProgWiden(s, h, ka, aa, c):
 			needed_contribution = (s.candadite_funds -s.candadite_funds*C - s.opp_funds*C)/(C-1)
 
 			needed_contribution = max(10, needed_contribution)
-			#21print(needed_contribution)
 			max_contribution = min(h["remaining_funds"], needed_contribution*1.5)
-			#print(max_contribution)
 			a = np.random.uniform(0, max_contribution)
 			if(a not in h["children"].keys()):
 				h["children"][a] = {"Q": 0, "visits": 1, "children":{}}
@@ -76,10 +76,8 @@ def actionProgWiden(s, h, ka, aa, c):
 	best_val = 0
 
 	min_val = abs(min(a["Q"] for a in h["children"].values()))
-	#print(min_val)
 	adj_val = [a["Q"] + min_val + 1 for a in  h["children"].values()]
 	tot_val = sum(adj_val)
-	#print(tot_val)
 	if(tot_val != 0):
 		p_vals = [v/tot_val for v in adj_val]
 	else:
@@ -88,25 +86,14 @@ def actionProgWiden(s, h, ka, aa, c):
 	actions = [a for a in h["children"].keys()]
 	best_a =  np.random.choice(a = actions, p = p_vals)
 
-	# max_visits = max(a["visits"] for a in h["children"].values())
-	# min_visits = min(a["visits"] for a in h["children"].values())
-	# for a in h["children"].keys():
-	# 	stats = h["children"][a]
-	# 	val = stats["Q"] + c*math.sqrt(math.log(h["visits"])/stats["visits"])
-	# 	visits = stats["visits"]
-	# 	#print("a: " + str(a) + " | visits: " + str(visits) + " | " + str(best_visits))
-	# 	if(val > best_val or (((min_visits * 10) < max_visits) and ((visits*10) < max_visits) and (np.random.uniform(0, 1) < 0.3))):
-	# 		best_val = val
-	# 		best_a = a
-
 	return best_a
 
-def simulate_pomcpow(s, h, d, ka, aa, ko, ao, c, max_win_reward):
+def simulate_pomcpow(s, h, d, ka, aa, ko, ao, c, max_win_reward, max_lose_reward, transition_effect, transition_confidence):
 	if(d == 0):
 		return 0
 
-	a = actionProgWiden(s, h, ka, aa, c)
-	new_s, o, r = nextState(s, a, max_win_reward)
+	a = actionProgWiden(s, h, ka, aa, c, transition_effect)
+	new_s, o, r = nextState(s, a, max_win_reward, max_lose_reward, transition_effect, transition_confidence)
 
 	if(len(h["children"][a]["children"]) <= ko*(h["children"][a]["visits"]**ao)):
 		if((a, o) not in h["seqs"]):
@@ -122,29 +109,20 @@ def simulate_pomcpow(s, h, d, ka, aa, ko, ao, c, max_win_reward):
 											"states": [], "weigts": {}, 
 											"remaining_funds": h["remaining_funds"] - a}
 
-		# print("\n")
-		# print(s.support)
-		# print(new_s.support)
-		# print(a)
-		# print(r)
-		total = r + rollout(new_s, h["children"][a]["children"][o], d-1, max_win_reward)
-		#print(total)
-		#x = 1/0
+		total = r + rollout(new_s, h["children"][a]["children"][o], d-1, max_win_reward, max_lose_reward, transition_effect, transition_confidence)
 	else:
-		# is this right?
 		h["children"][a]["children"][o]["states"].append(new_s)
 		h["children"][a]["children"][o]["weigts"][new_s] = norm.pdf(o, loc = new_s.support, scale = POLLING_SD)
 
 		tot = sum(h["children"][a]["children"][o]["weigts"].values())
 		
-		# is this necessary?
 		if(tot == 0):
 			new_s = np.random.choice([s for s in h["children"][a]["children"][o]["states"]])
 		else:
 			new_s = np.random.choice(a = [s for s in h["children"][a]["children"][o]["states"]], 
 				    p = [v/tot for v in h["children"][a]["children"][o]["weigts"].values()])
-		r = generate_reward(new_s, a, max_win_reward)
-		total = r + simulate_pomcpow(new_s, h["children"][a]["children"][o], d-1, ka, aa, ko, ao, c, max_win_reward)
+		r = generate_reward(new_s, a, max_win_reward, max_lose_reward, transition_confidence)
+		total = r + simulate_pomcpow(new_s, h["children"][a]["children"][o], d-1, ka, aa, ko, ao, c, max_win_reward, max_lose_reward, transition_effect, transition_confidence)
 
 	h["visits"] += 1
 	h["children"][a]["visits"] += 1
@@ -153,7 +131,7 @@ def simulate_pomcpow(s, h, d, ka, aa, ko, ao, c, max_win_reward):
 	return total
 
 
-def nextState(s, a, max_win_reward):
+def nextState(s, a, max_win_reward, max_lose_reward, transition_effect, transition_confidence):
 	params = (-1.220215081837054, 0.9160324660574186, 0.638390131996225, 0.0798918035032058)
 	new_s = state()
 	new_s.remaining_funds = s.remaining_funds - a
@@ -161,9 +139,7 @@ def nextState(s, a, max_win_reward):
 	new_s.opp_funds = s.opp_funds
 	new_s.max_rounds = s.max_rounds
 
-	# get just one sample from vote per money distribution
-	sample = st.johnsonsu.rvs(loc=params[-2], scale=params[-1], *params[:-2], size=1)[0]
-	sample = 1
+	sample = transition_effect
 	money_percent = new_s.candadite_funds / float(new_s.candadite_funds + new_s.opp_funds)
 	new_s.support = min(1, money_percent*sample) # current money % * number of vote % per money %
 											     # its not possible to get more than 100% of the votes
@@ -171,7 +147,7 @@ def nextState(s, a, max_win_reward):
 
 	o = generate_obs(new_s)
 
-	r = generate_reward(new_s, a, max_win_reward)
+	r = generate_reward(new_s, a, max_win_reward, max_lose_reward, transition_confidence)
 
 	return (new_s, o, r)
 
@@ -179,44 +155,36 @@ def generate_obs(s):
 	params = (-0.11831752848651322, 0.898170472604464, 0.06716771963319479)
 	# get just one sample from poll per vote distribution
 	sample = st.tukeylambda.rvs(loc=params[-2], scale=params[-1], *params[:-2], size=1)[0]
+	sample = max(1, sample)
 	o = s.support*sample # current vote % * number of poll % per vote %
 	return o
 
-def generate_reward(s, a, max_win_reward):
+def generate_reward(s, a, max_win_reward, max_lose_reward, transition_confidence):
 	r = 0
 	r -= a
 	if(s.support > 0.5):
-		r += max_win_reward * ((s.max_rounds-s.n_rounds+1)/(s.max_rounds+1))
-	
+		r += transition_confidence * max_win_reward * ((s.max_rounds-s.n_rounds+1)/(s.max_rounds+1))
+	else:
+		r += transition_confidence * max_lose_reward * ((s.max_rounds-s.n_rounds+1)/(s.max_rounds+1))
 	return r
 
-def rollout(s, h, d, max_win_reward):
-	#assue that the latest poll reflects the true support and donate accordingly
+def rollout(s, h, d, max_win_reward, max_lose_reward, transition_effect, transition_confidence):
+	#assume that the latest poll reflects the true support and donate accordingly
 	if(d==0):
 		return 0
 
-	# print("rollout")
-	# print(d)
-	# print(s.max_rounds)
-	# print(s.n_rounds)
-	# print(sum(MAX_WIN_REWARD * ((s.max_rounds-n+1)/(s.max_rounds+1)) for n in range(s.n_rounds-1, -1, -1)))
 	if(s.support > 0.5):
 		return sum(max_win_reward * ((s.max_rounds-n+1)/(s.max_rounds+1)) for n in range(s.n_rounds-1, -1, -1))
 	else:
-		params = (-1.220215081837054, 0.9160324660574186, 0.638390131996225, 0.0798918035032058)
-		# get just one sample from vote per money distribution
-		sample = st.johnsonsu.rvs(loc=params[-2], scale=params[-1], *params[:-2], size=1)[0]
-		sample = 1
+		sample = transition_effect
 		money_percent = s.candadite_funds / float(s.candadite_funds + s.opp_funds)
 		needed_more_money_perecent = (0.5 - s.support)/sample
 		C = money_percent + needed_more_money_perecent
 		needed_contribution = (s.candadite_funds -s.candadite_funds*C - s.opp_funds*C)/(C-1)
-		#print("needed: " + str(needed_contribution))
-		#print("remaining: " + str(s.remaining_funds))
 		if(needed_contribution >= s.remaining_funds):
-			return 0
+			return 0 +  sum(transition_confidence* max_lose_reward * ((s.max_rounds-n+1)/(s.max_rounds+1)) for n in range(s.n_rounds-2, -1, -1))
 		else:
-			return (-1*needed_contribution) +  sum(max_win_reward * ((s.max_rounds-n+1)/(s.max_rounds+1)) for n in range(s.n_rounds-2, -1, -1))
+			return (-1*needed_contribution) +  sum(transition_confidence * max_win_reward * ((s.max_rounds-n+1)/(s.max_rounds+1)) for n in range(s.n_rounds-2, -1, -1))
 
 
 def plan_pftdpw(b, n, d=1, ka=1, aa=1, ko = 1, ao = 1, c=1, start_support = 0.5, 
@@ -279,10 +247,8 @@ def updateBelief(b, s, a, numSamples):
 	temp_s.opp_funds -= a
 	o = generate_obs(temp_s)
 	for i in range(numSamples):
-		#rand_support = generate_obs(s)
 		
 		rand_support = np.random.normal(s.support, scale= POLLING_SD)
-		#print(rand_support)
 		rand_support = min(1, rand_support)
 		rand_support = max(0, rand_support)
 
@@ -291,9 +257,7 @@ def updateBelief(b, s, a, numSamples):
 		temp_s = copy.copy(s)
 		temp_s.candadite_funds = rand_support*(candadite_funds + opp_funds)
 		temp_s.opp_funds = (1-rand_support)*(candadite_funds + opp_funds)
-		#print("rand support: " + str(rand_support))
 		new_s, __, __ = nextState(temp_s, a)
-		#print("new support: " + str(new_s.support))
 		weight = norm.pdf(o, loc = new_s.support, scale = POLLING_SD)
 		
 		samples.append(new_s.support)
@@ -305,9 +269,6 @@ def updateBelief(b, s, a, numSamples):
 		weights = [w/tot for w in weights]
 	else:
 		weights = [1.0/len(samples) for w in weights]
-	#for i in range(len(weights)):
-	# 	print(str(samples[i]) + " | " + str(weights[i]))
-
 
 	new_support = 0
 	topSamples = int(numSamples*0.1)
@@ -322,16 +283,4 @@ def updateBelief(b, s, a, numSamples):
 		r += MAX_WIN_REWARD * ((s.max_rounds-s.n_rounds+1)/(s.max_rounds+1))
 	b["children"][a]["children"][new_b] = {"value": new_b, "reward": r, "children": {},
 					"visits": 1, "seqs": {}, "remaining_funds": b["remaining_funds"] - a}
-	#x = 1/0
 	return new_b, r
-
-prior = 0.5
-n = 1000
-ka = 30
-aa = 1.0/30
-ko = 5
-ao = 0.01
-c = 110
-d = 10
-
-#print(plan_pftdpw(prior, n, d, ka, aa, ko, ao, c, start_funds=10000))

@@ -1,3 +1,9 @@
+"""
+DEPRECATED--verified that donor/election system was setup correctly
+
+"""
+
+
 from donor import Donor
 from election import Election
 

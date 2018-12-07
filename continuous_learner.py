@@ -1,3 +1,8 @@
+"""
+For testing purposes--this may be a bit outdated--see exp_X.py files for correct use of solvers
+"""
+
+
 import random
 from scipy.stats import norm
 import numpy as np
@@ -54,7 +59,6 @@ score = 0
 contributed = 0
 while(election.n_rounds != 0):
 	poll = election.generatePoll()
-	#poll = 0.4
 	print("In round " + str(i) + ", candidate had " + str(round(poll, 2)) + " vote share")
 	contribution = continuous_solver.plan_pftdpw(poll, N, election.n_rounds, KA, AA, KO,
 	 						 AO, C, START_SUPPORT, donor.funds, election.n_rounds, m)

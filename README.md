@@ -4,7 +4,7 @@ Sawyer Birnbaum, Lucy Li, Vivian Hsu
 #Insert abstract
 
 Important Files:
-1. Demo.py -- allow a user to simulate a multi-election (run file for usage details)
+1. Demo.py -- allows a user to simulate a multi-election (run file for usage details)
 2. donations.jl / problem.jl / zero.jl -- define the discrete problem and its solvers
 3. election.py / donor.py -- define the continuous problem 
 4. continuous_solver.py / continuous_solver_multi.py -- POMDP based solvers for the continuous problem (with and without multiple races)

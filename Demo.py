@@ -33,7 +33,7 @@ while True:
 		break
 
 while True :
-	rounds = int(input("How many round? "))
+	rounds = int(input("How many rounds? "))
 	if(rounds <= 0):
 		print("Choose at least 1 round.")
 	else:
@@ -80,7 +80,7 @@ while(elections[0].n_rounds != 0):
 	print("Round " + str(rounds - elections[0].n_rounds + 1))
 	polls = [e.generatePoll() for e in elections]
 	for i in range(num_election):
-		print("Election " + str(i) + ": poll -" + str(polls[i]))
+		print("Election " + str(i) + ": poll -- " + str(polls[i]))
 
 	if(model == 'baseline'):
 		contribs = baseline_solver_multi.make_contribution(polls, donor.funds, elections)

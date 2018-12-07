@@ -1,5 +1,6 @@
 """
-Experiment 1: tests of basic model
+Experiment 3: tests varying the lose penalty
+
 
 """
 
@@ -17,52 +18,43 @@ POLLING_SD = 0.005
 INITIAL_FUNDS = 1000
 
 # for pomcpow
-# N = 10000
-# KA = 30
-# AA = 1.0/30
-# KO = 5
-# AO = 0.01
-# C = 200
+N = 10000
+KA = 30
+AA = 1.0/30
+KO = 5
+AO = 0.01
+C = 200
 
-# for pft-dpw
-N = 1000
-KA = 20
-AA = 1.0/25
-KO = 8
-AO = 1.0/85
-C = 100
-m = 500
-
-START_SUPPORTS = [x/100.0 for x in range(0, 110, 10)]
+START_SUPPORTS = [x/100.0 for x in range(0, 101, 10)]
 ROUNDS = 10
+LOSE_PENALTIES = [x for x in range(0, 400, 100)]
 MAX_WIN_REWARD = 500
 
-iters = 50
-
-scores = np.zeros(shape = (len(START_SUPPORTS), iters))
-contributions = np.zeros(shape = (len(START_SUPPORTS), ROUNDS, iters))
-
-
+scores = np.zeros(shape = (len(START_SUPPORTS), len(LOSE_PENALTIES)))
+contributions = np.zeros(shape = (len(START_SUPPORTS), len(LOSE_PENALTIES), ROUNDS))
 
 for i in tqdm(range(len(START_SUPPORTS))):
-	for j in tqdm(range(iters)):
+	for j in tqdm(range(len(LOSE_PENALTIES))):
+		max_possible = 0
+
+
 		s = START_SUPPORTS[i]
+		l = LOSE_PENALTIES[j]
+		
 		election = Election(ROUNDS, s, INITIAL_FUNDS)
 		donor = Donor(INITIAL_FUNDS)
-		belief = 1e-5# starting belief
 
+		q = []
+		c = []
 		score = 0
 		while(election.n_rounds != 0):
 			poll = election.generatePoll()
 
-			#contribution = continuous_solver.plan_pftdpw(poll, N, election.n_rounds, KA, AA, KO,
-			# 						 AO, C, s, donor.funds, election.n_rounds, m)
 			#contribution = continuous_solver.plan_pomcpow(poll, N, election.n_rounds, KA, AA, KO,
 			#						 AO, C, election.support, donor.funds, election.money + election.opp_money,
-			#						 election.n_rounds)
+			#						 election.n_rounds, MAX_WIN_REWARD, l)
 			contribution = baseline_solver.make_contribution(poll, donor.funds, election.money, election.opp_money)
-			
-			contributions[i][ROUNDS - election.n_rounds][j] = contribution
+			#contributions[i][j][election.n_rounds-1] = contribution
 			donor.makeContribution(contribution)
 			election.updateSupport(contribution, verbose=False)
 			
@@ -70,9 +62,11 @@ for i in tqdm(range(len(START_SUPPORTS))):
 			
 			if(election.support > 0.5):
 				score += MAX_WIN_REWARD * ((ROUNDS-election.n_rounds+1)/(ROUNDS+1))
-				
+			else:
+				score -= l * ((ROUNDS-election.n_rounds+1)/(ROUNDS+1))
+
 		scores[i][j] = score
 
-np.save("basic_big_baseline_contributions.npy", contributions)
-
-np.save('basic_big_baseline_scores.npy', scores)
+print(scores)
+np.save("lose_penalty_big_baseline_contributions.npy", contributions)
+np.save('lose_penalty_big_baseline_scores.npy', np.array(scores))

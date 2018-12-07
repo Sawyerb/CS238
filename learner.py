@@ -1,3 +1,8 @@
+"""
+DEPRECATED--basic solver using a particle filter to estimate true support
+
+"""
+
 import random
 from scipy.stats import norm
 import numpy as np

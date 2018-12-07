@@ -1,3 +1,9 @@
+"""
+Experiment 2: tests varying the win reward
+
+"""
+
+
 import random
 from scipy.stats import norm
 import numpy as np
@@ -21,7 +27,7 @@ C = 200
 
 START_SUPPORTS = [x/100.0 for x in range(0, 101, 10)]
 ROUNDS = 10
-MAX_WIN_REWARDS = [x for x in range(100, 600, 100)]
+MAX_WIN_REWARDS = [x for x in range(100, 1100, 100)]
 
 scores = np.zeros(shape = (len(START_SUPPORTS), len(MAX_WIN_REWARDS)))
 contributions = np.zeros(shape = (len(START_SUPPORTS), len(MAX_WIN_REWARDS), ROUNDS))
@@ -43,10 +49,10 @@ for i in tqdm(range(len(START_SUPPORTS))):
 		while(election.n_rounds != 0):
 			poll = election.generatePoll()
 
-			#contribution = continuous_solver.plan_pomcpow(poll, N, election.n_rounds, KA, AA, KO,
-			#						 AO, C, election.support, donor.funds, election.money + election.opp_money,
-			#						 election.n_rounds, w)
-			contribution = baseline_solver.make_contribution(poll, donor.funds, election.money, election.opp_money)
+			contribution = continuous_solver.plan_pomcpow(poll, N, election.n_rounds, KA, AA, KO,
+									 AO, C, election.support, donor.funds, election.money + election.opp_money,
+									 election.n_rounds, w)
+			#contribution = baseline_solver.make_contribution(poll, donor.funds, election.money, election.opp_money)
 			contributions[i][j][election.n_rounds-1] = contribution
 			donor.makeContribution(contribution)
 			election.updateSupport(contribution, verbose=False)
@@ -59,5 +65,5 @@ for i in tqdm(range(len(START_SUPPORTS))):
 		scores[i][j] = score
 
 print(scores)
-np.save("win_reward_big_baseline_contributions.npy", contributions)
-np.save('win_reward_big_baseline_scores.npy', np.array(scores))
+np.save("win_reward_big_pomcpow_contributions.npy", contributions)
+np.save('win_reward_big_pomcpow_scores.npy', np.array(scores))
